@@ -1,0 +1,361 @@
+// ============================================
+// PRISMA SCHEMA - WMS (Warehouse Management System)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  ADMIN
+  MANAGER
+  WAREHOUSE
+}
+
+enum DocumentType {
+  PZ
+  WZ
+  MM
+  INV_ADJ
+}
+
+enum DocumentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum LocationStatus {
+  ACTIVE
+  BLOCKED
+  COUNTING
+}
+
+enum InventoryStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AuditAction {
+  STOCK_IN
+  STOCK_OUT
+  STOCK_MOVE
+  STOCK_ADJ
+  DOC_CREATE
+  DOC_CONFIRM
+  DOC_CANCEL
+  INV_START
+  INV_COMPLETE
+  INV_CANCEL
+  CONTAINER_CREATE
+  CONTAINER_MOVE
+  USER_LOGIN
+  USER_LOGOUT
+}
+
+// ============================================
+// USER MODEL
+// ============================================
+
+model User {
+  id              String    @id @default(uuid())
+  phone           String    @unique
+  password        String
+  name            String
+  role            Role      @default(WAREHOUSE)
+  permissions     String[]  @default([])
+  isActive        Boolean   @default(true)
+  lastLogin       DateTime?
+  failedLogins    Int       @default(0)
+  lockedUntil     DateTime?
+  mustChangePw    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdDocuments      Document[]       @relation("DocumentCreatedBy")
+  confirmedDocuments    Document[]       @relation("DocumentConfirmedBy")
+  scannedLines          DocumentLine[]   @relation("LineScannedBy")
+  auditLogs             AuditLog[]
+  createdInventories    InventoryCount[] @relation("InventoryCreatedBy")
+  countedInventoryLines InventoryLine[]  @relation("InventoryLineCounted")
+
+  @@index([phone])
+  @@index([role])
+}
+
+// ============================================
+// WAREHOUSE MODEL
+// ============================================
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  address   String?
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations   Location[]
+  documents   Document[]
+  inventories InventoryCount[]
+
+  @@index([code])
+}
+
+// ============================================
+// LOCATION MODEL
+// ============================================
+
+model Location {
+  id          String         @id @default(uuid())
+  barcode     String         @unique
+  warehouseId String
+  warehouse   Warehouse      @relation(fields: [warehouseId], references: [id])
+  rack        String
+  shelf       String
+  level       String
+  zone        String?
+  status      LocationStatus @default(ACTIVE)
+  blockReason String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  stocks            Stock[]
+  containers        Container[]
+  documentLinesFrom DocumentLine[]  @relation("LineFromLocation")
+  documentLinesTo   DocumentLine[]  @relation("LineToLocation")
+  inventoryLines    InventoryLine[]
+
+  @@unique([warehouseId, rack, shelf, level])
+  @@index([barcode])
+  @@index([warehouseId])
+  @@index([status])
+}
+
+// ============================================
+// PRODUCT MODEL
+// ============================================
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  ean         String   // EAN/kod kreskowy - wymagany
+  name        String
+  description String?  // Opis produktu
+  unit        String   @default("szt")
+  zone        String?  // Magazyn (grh, wodna)
+  category    String?  // Rodzaj (towar, usługa)
+  owner       String?
+  imageUrl    String?
+  priceNetto  Decimal? @db.Decimal(10, 2) // Cena detaliczna netto
+  priceBrutto Decimal? @db.Decimal(10, 2) // Cena detaliczna brutto
+  vatRate     Int?     // Stawka VAT (23, 8, 5, 0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stocks         Stock[]
+  documentLines  DocumentLine[]
+  inventoryLines InventoryLine[]
+  auditLogs      AuditLog[]
+
+  @@index([sku])
+  @@index([ean])
+  @@index([name])
+  @@index([category])
+}
+
+// ============================================
+// CONTAINER MODEL (KUWETA/KARTON)
+// ============================================
+
+model Container {
+  id          String    @id @default(uuid())
+  barcode     String    @unique // K000001, K000002...
+  name        String?
+  locationId  String?
+  location    Location? @relation(fields: [locationId], references: [id])
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  stocks Stock[]
+
+  @@index([barcode])
+  @@index([locationId])
+}
+
+// ============================================
+// STOCK MODEL
+// ============================================
+
+model Stock {
+  id          String     @id @default(uuid())
+  productId   String
+  product     Product    @relation(fields: [productId], references: [id])
+  locationId  String
+  location    Location   @relation(fields: [locationId], references: [id])
+  containerId String?
+  container   Container? @relation(fields: [containerId], references: [id])
+  qty         Int        @default(0)
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([productId, locationId, containerId])
+  @@index([productId])
+  @@index([locationId])
+  @@index([containerId])
+  @@index([qty])
+}
+
+// ============================================
+// DOCUMENT MODEL
+// ============================================
+
+model Document {
+  id            String         @id @default(uuid())
+  number        String         @unique
+  type          DocumentType
+  status        DocumentStatus @default(DRAFT)
+  warehouseId   String
+  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
+  referenceNo   String?
+  notes         String?
+  internalNotes String?
+  createdById   String
+  createdBy     User           @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  confirmedById String?
+  confirmedBy   User?          @relation("DocumentConfirmedBy", fields: [confirmedById], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  confirmedAt   DateTime?
+
+  lines     DocumentLine[]
+  auditLogs AuditLog[]
+
+  @@index([type, status])
+  @@index([warehouseId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+// ============================================
+// DOCUMENT LINE MODEL
+// ============================================
+
+model DocumentLine {
+  id              String    @id @default(uuid())
+  documentId      String
+  document        Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  fromLocationId  String?
+  fromLocation    Location? @relation("LineFromLocation", fields: [fromLocationId], references: [id])
+  toLocationId    String?
+  toLocation      Location? @relation("LineToLocation", fields: [toLocationId], references: [id])
+  qty             Int       @default(1)
+  scannedByUserId String
+  scannedBy       User      @relation("LineScannedBy", fields: [scannedByUserId], references: [id])
+  scannedAt       DateTime  @default(now())
+
+  @@index([documentId])
+  @@index([productId])
+}
+
+// ============================================
+// INVENTORY COUNT MODEL
+// ============================================
+
+model InventoryCount {
+  id           String          @id @default(uuid())
+  name         String
+  warehouseId  String
+  warehouse    Warehouse       @relation(fields: [warehouseId], references: [id])
+  status       InventoryStatus @default(IN_PROGRESS)
+  createdById  String
+  createdBy    User            @relation("InventoryCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime        @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime        @updatedAt
+
+  lines InventoryLine[]
+
+  @@index([warehouseId])
+  @@index([status])
+}
+
+// ============================================
+// INVENTORY LINE MODEL
+// ============================================
+
+model InventoryLine {
+  id               String         @id @default(uuid())
+  inventoryCountId String
+  inventoryCount   InventoryCount @relation(fields: [inventoryCountId], references: [id], onDelete: Cascade)
+  locationId       String
+  location         Location       @relation(fields: [locationId], references: [id])
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  systemQty        Int            @default(0)
+  countedQty       Int
+  countedByUserId  String
+  countedBy        User           @relation("InventoryLineCounted", fields: [countedByUserId], references: [id])
+  countedAt        DateTime       @default(now())
+
+  @@unique([inventoryCountId, locationId, productId])
+  @@index([inventoryCountId])
+  @@index([locationId])
+}
+
+// ============================================
+// AUDIT LOG MODEL
+// ============================================
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  action         AuditAction
+  productId      String?
+  product        Product?    @relation(fields: [productId], references: [id])
+  fromLocationId String?
+  toLocationId   String?
+  qty            Int?
+  documentId     String?
+  document       Document?   @relation(fields: [documentId], references: [id])
+  inventoryId    String?
+  reason         String?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([productId])
+  @@index([documentId])
+  @@index([createdAt])
+}
+
+// ============================================
+// SETTINGS MODEL
+// ============================================
+
+model Settings {
+  id          String   @id @default("main")
+  companyName String?
+  companyLogo String?
+  data        Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
