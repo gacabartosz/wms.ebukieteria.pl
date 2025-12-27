@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Warehouse, Plus, Check, X, Trash2 } from 'lucide-react';
+import { Warehouse, Plus, Check, X, Trash2, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { warehousesService } from '../services/warehousesService';
+import type { Warehouse as WarehouseType } from '../types';
 import clsx from 'clsx';
 
 export default function WarehousesPage() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ code: '', name: '', address: '' });
+  const [editingWarehouse, setEditingWarehouse] = useState<WarehouseType | null>(null);
+  const [editData, setEditData] = useState({ name: '', address: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['warehouses'],
@@ -36,12 +39,29 @@ export default function WarehousesPage() {
       warehousesService.updateWarehouse(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      setEditingWarehouse(null);
       toast.success('Magazyn zaktualizowany');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Błąd aktualizacji');
     },
   });
+
+  const handleEdit = (wh: WarehouseType) => {
+    setEditingWarehouse(wh);
+    setEditData({ name: wh.name, address: wh.address || '' });
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editData.name.trim()) {
+      toast.error('Nazwa nie może być pusta');
+      return;
+    }
+    if (editingWarehouse) {
+      updateMutation.mutate({ id: editingWarehouse.id, data: editData });
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: warehousesService.deleteWarehouse,
@@ -82,6 +102,44 @@ export default function WarehousesPage() {
         </Button>
       }
     >
+      {/* Edit Modal */}
+      {editingWarehouse && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleSaveEdit} className="glass-card p-6 w-full max-w-md animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-4">
+              Edytuj magazyn: <span className="text-primary-400">{editingWarehouse.code}</span>
+            </h3>
+            <div className="space-y-3">
+              <Input
+                label="Nazwa"
+                value={editData.name}
+                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                autoFocus
+              />
+              <Input
+                label="Adres (opcjonalnie)"
+                value={editData.address}
+                onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                placeholder="np. ul. Logistyczna 1, Warszawa"
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditingWarehouse(null)}
+                className="flex-1"
+              >
+                Anuluj
+              </Button>
+              <Button type="submit" loading={updateMutation.isPending} className="flex-1">
+                Zapisz
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Create form */}
       {showForm && (
         <form onSubmit={handleCreate} className="glass-card p-4 mb-4 space-y-3 animate-fade-in">
@@ -149,6 +207,13 @@ export default function WarehousesPage() {
                   {wh.address && <p className="text-slate-500 text-sm">{wh.address}</p>}
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEdit(wh)}
+                    className="p-2 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-white/10"
+                    title="Edytuj magazyn"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
                   <button
                     onClick={() => handleToggleActive(wh.id, wh.isActive)}
                     className={clsx(

@@ -1,14 +1,39 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box, Plus, Filter, MapPin, Package, ArrowRight, X, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { Box, Plus, Filter, MapPin, Package, ArrowRight, X, ChevronUp, ChevronDown, Download, Edit2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { containersService } from '../services/containersService';
+import type { Container } from '../types';
 
 type SortField = 'barcode' | 'location' | 'stockCount';
 type SortDir = 'asc' | 'desc';
+
+// Funkcja do odtwarzania dźwięku kuwety
+const playContainerSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
+    oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1); // C#6
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (e) {
+    console.log('Audio not supported');
+  }
+};
 
 export default function ContainersPage() {
   const queryClient = useQueryClient();
@@ -22,6 +47,8 @@ export default function ContainersPage() {
   const [moveLocation, setMoveLocation] = useState('');
   const [sortField, setSortField] = useState<SortField>('barcode');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [editingContainer, setEditingContainer] = useState<Container | null>(null);
+  const [editData, setEditData] = useState({ name: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['containers', filters],
@@ -44,6 +71,7 @@ export default function ContainersPage() {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowForm(false);
       setNewContainer({ barcode: '', name: '', locationBarcode: '' });
+      playContainerSound();
       toast.success('Kuweta utworzona');
     },
     onError: (error: any) => {
@@ -56,6 +84,7 @@ export default function ContainersPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowForm(false);
+      playContainerSound();
       toast.success(`Utworzono ${result.length} kuwet`);
     },
     onError: (error: any) => {
@@ -70,12 +99,57 @@ export default function ContainersPage() {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowMoveModal(null);
       setMoveLocation('');
+      playContainerSound();
       toast.success('Kuweta przeniesiona');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Błąd przenoszenia');
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string } }) =>
+      containersService.updateContainer(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['containers'] });
+      setEditingContainer(null);
+      playContainerSound();
+      toast.success('Kuweta zaktualizowana');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd aktualizacji');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: containersService.deactivateContainer,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['containers'] });
+      toast.success('Kuweta usunięta');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd usuwania');
+    },
+  });
+
+  const handleEdit = (container: Container) => {
+    setEditingContainer(container);
+    setEditData({ name: container.name || '' });
+    playContainerSound();
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingContainer) {
+      updateMutation.mutate({ id: editingContainer.id, data: { name: editData.name || undefined } });
+    }
+  };
+
+  const handleDelete = (id: string, barcode: string) => {
+    if (window.confirm(`Czy na pewno chcesz usunąć kuwetę ${barcode}?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,6 +314,45 @@ export default function ContainersPage() {
         </div>
       )}
 
+      {/* Edit Modal */}
+      {editingContainer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleSaveEdit} className="glass-card p-6 w-full max-w-md animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-4">
+              Edytuj kuwetę: <span className="text-primary-400">{editingContainer.barcode}</span>
+            </h3>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-white/5">
+                <div className="text-xs text-slate-500 mb-1">Lokalizacja</div>
+                <div className="text-white font-medium">
+                  {editingContainer.location?.barcode || 'Nie przypisana'}
+                </div>
+              </div>
+              <Input
+                label="Nazwa kuwety"
+                value={editData.name}
+                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                placeholder="np. Kuweta Nike"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditingContainer(null)}
+                className="flex-1"
+              >
+                Anuluj
+              </Button>
+              <Button type="submit" loading={updateMutation.isPending} className="flex-1">
+                Zapisz
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Filters */}
       {showFilters && (
         <div className="glass-card p-4 mb-4 animate-fade-in">
@@ -338,7 +451,10 @@ export default function ContainersPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => setShowContentsModal(container.id)}
+                        onClick={() => {
+                          setShowContentsModal(container.id);
+                          playContainerSound();
+                        }}
                         className="inline-flex items-center gap-1 text-slate-300 hover:text-white"
                       >
                         <Package className="w-4 h-4" />
@@ -346,14 +462,29 @@ export default function ContainersPage() {
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setShowMoveModal(container.id)}
-                        icon={<ArrowRight className="w-4 h-4" />}
-                      >
-                        Przenieś
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEdit(container)}
+                          className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-white/10"
+                          title="Edytuj kuwetę"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setShowMoveModal(container.id)}
+                          className="p-1.5 rounded-lg transition-colors text-blue-400 hover:bg-blue-500/10"
+                          title="Przenieś kuwetę"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(container.id, container.barcode)}
+                          className="p-1.5 rounded-lg transition-colors text-red-400 hover:bg-red-500/20"
+                          title="Usuń kuwetę"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -368,7 +499,10 @@ export default function ContainersPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-mono font-medium text-primary-400 text-lg">{container.barcode}</span>
                   <button
-                    onClick={() => setShowContentsModal(container.id)}
+                    onClick={() => {
+                      setShowContentsModal(container.id);
+                      playContainerSound();
+                    }}
                     className="flex items-center gap-1 text-slate-300"
                   >
                     <Package className="w-4 h-4" />
@@ -387,13 +521,26 @@ export default function ContainersPage() {
                   ) : (
                     <span className="text-sm text-slate-500">Nie przypisana</span>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowMoveModal(container.id)}
-                  >
-                    Przenieś
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEdit(container)}
+                      className="p-1.5 rounded text-slate-400"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setShowMoveModal(container.id)}
+                      className="p-1.5 rounded text-blue-400"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(container.id, container.barcode)}
+                      className="p-1.5 rounded text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

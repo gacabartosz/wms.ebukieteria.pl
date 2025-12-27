@@ -28,7 +28,7 @@ export const locationsService = {
     return response.data;
   },
 
-  updateLocation: async (id: string, data: { status?: string }): Promise<Location> => {
+  updateLocation: async (id: string, data: { status?: string; zone?: string }): Promise<Location> => {
     const response = await api.put(`/locations/${id}`, data);
     return response.data;
   },

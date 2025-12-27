@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download, Trash2, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
@@ -8,6 +8,7 @@ import Input from '../components/Input';
 import ImportModal, { ImportField } from '../components/ImportModal';
 import { locationsService } from '../services/locationsService';
 import { warehousesService } from '../services/warehousesService';
+import type { Location } from '../types';
 import clsx from 'clsx';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -34,6 +35,8 @@ export default function LocationsPage() {
   const [newLocation, setNewLocation] = useState({ barcode: '', warehouseId: '', zone: '' });
   const [sortField, setSortField] = useState<SortField>('barcode');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editData, setEditData] = useState({ zone: '' });
 
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
@@ -72,6 +75,31 @@ export default function LocationsPage() {
       toast.success('Status zmieniony');
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { zone?: string } }) =>
+      locationsService.updateLocation(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setEditingLocation(null);
+      toast.success('Lokalizacja zaktualizowana');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd aktualizacji');
+    },
+  });
+
+  const handleEdit = (loc: Location) => {
+    setEditingLocation(loc);
+    setEditData({ zone: loc.zone || '' });
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingLocation) {
+      updateMutation.mutate({ id: editingLocation.id, data: { zone: editData.zone || undefined } });
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: locationsService.deleteLocation,
@@ -203,6 +231,43 @@ export default function LocationsPage() {
         </div>
       }
     >
+      {/* Edit Modal */}
+      {editingLocation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleSaveEdit} className="glass-card p-6 w-full max-w-md animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-4">
+              Edytuj lokalizację: <span className="text-primary-400">{editingLocation.barcode}</span>
+            </h3>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-white/5">
+                <div className="text-xs text-slate-500 mb-1">Magazyn</div>
+                <div className="text-white font-medium">{editingLocation.warehouse?.code || '-'}</div>
+              </div>
+              <Input
+                label="Strefa"
+                value={editData.zone}
+                onChange={(e) => setEditData({ ...editData, zone: e.target.value.toUpperCase() })}
+                placeholder="np. A"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditingLocation(null)}
+                className="flex-1"
+              >
+                Anuluj
+              </Button>
+              <Button type="submit" loading={updateMutation.isPending} className="flex-1">
+                Zapisz
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Create form */}
       {showForm && (
         <form onSubmit={handleCreate} className="glass-card p-4 mb-4 space-y-3 animate-fade-in">
@@ -352,6 +417,13 @@ export default function LocationsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => handleEdit(loc)}
+                            className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-white/10"
+                            title="Edytuj lokalizację"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => toggleStatusMutation.mutate({
                               id: loc.id,
                               status: loc.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE',
@@ -386,6 +458,12 @@ export default function LocationsPage() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono font-medium text-white text-sm">{loc.barcode}</span>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(loc)}
+                        className="p-1 rounded text-slate-400"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => toggleStatusMutation.mutate({
                           id: loc.id,
