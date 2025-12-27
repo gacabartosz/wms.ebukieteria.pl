@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zebra Label Printer - eBukieteria WMS</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 10px; }
+        .header p { color: rgba(255,255,255,0.6); }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .tab:hover { background: rgba(255,255,255,0.1); }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        select option { background: #1a1a2e; color: #fff; }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: #fff;
+        }
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: #fff;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+
+        .preview {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .preview-item {
+            font-family: 'Courier New', monospace;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-box .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-box .label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 5px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .checkbox-item:hover { background: rgba(255,255,255,0.06); }
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .checkbox-item .info { flex: 1; }
+        .checkbox-item .name { font-weight: 600; }
+        .checkbox-item .details { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+        .checkbox-item .count {
+            background: rgba(102,126,234,0.2);
+            color: #667eea;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .alert-warning {
+            background: rgba(255,193,7,0.1);
+            border: 1px solid rgba(255,193,7,0.3);
+            color: #ffc107;
+        }
+        .alert-info {
+            background: rgba(102,126,234,0.1);
+            border: 1px solid rgba(102,126,234,0.3);
+            color: #667eea;
+        }
+        .alert-success {
+            background: rgba(56,239,125,0.1);
+            border: 1px solid rgba(56,239,125,0.3);
+            color: #38ef7d;
+        }
+
+        .summary-box {
+            background: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+            border: 2px solid rgba(102,126,234,0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+        .summary-box h4 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row.total {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #38ef7d;
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        .history-item .range { font-family: monospace; color: #667eea; }
+        .history-item .date { color: rgba(255,255,255,0.5); }
+
+        .zpl-preview {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .tabs { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // ============================================
+        // KONFIGURACJA MAGAZYNÓW
+        // ============================================
+        const WAREHOUSES = [
+            { code: 'PLO', name: 'Płonica', aisles: 6, racks: 4, shelves: 5 },
+            { code: 'WOD', name: 'Wodna', aisles: 4, racks: 6, shelves: 5 },
+            { code: 'TAR', name: 'Targowa', aisles: 3, racks: 5, shelves: 5 },
+        ];
+
+        // ============================================
+        // LOCALSTORAGE KEYS
+        // ============================================
+        const STORAGE_KEYS = {
+            LAST_CONTAINER_NUMBER: 'zebra_last_container_number',
+            CONTAINER_HISTORY: 'zebra_container_history',
+            PRINTED_LOCATIONS: 'zebra_printed_locations',
+        };
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        const padNumber = (num, length = 2) => String(num).padStart(length, '0');
+
+        const generateLocationCode = (warehouse, aisle, rack, shelf) => {
+            return `${warehouse}-${padNumber(aisle)}-${padNumber(rack)}-${padNumber(shelf)}`;
+        };
+
+        const generateContainerCode = (num) => {
+            return `K${padNumber(num, 7)}`;
+        };
+
+        const generateAllLocations = (warehouse) => {
+            const wh = WAREHOUSES.find(w => w.code === warehouse);
+            if (!wh) return [];
+
+            const locations = [];
+            for (let a = 1; a <= wh.aisles; a++) {
+                for (let r = 1; r <= wh.racks; r++) {
+                    for (let s = 1; s <= wh.shelves; s++) {
+                        locations.push(generateLocationCode(warehouse, a, r, s));
+                    }
+                }
+            }
+            return locations;
+        };
+
+        const getWarehouseStats = (warehouse) => {
+            const wh = WAREHOUSES.find(w => w.code === warehouse);
+            if (!wh) return { total: 0, first: '', last: '' };
+
+            const total = wh.aisles * wh.racks * wh.shelves;
+            const first = generateLocationCode(warehouse, 1, 1, 1);
+            const last = generateLocationCode(warehouse, wh.aisles, wh.racks, wh.shelves);
+
+            return { total, first, last, ...wh };
+        };
+
+        // ZPL dla etykiety 56x42mm
+        const generateZPL = (code, line1 = '', line2 = '') => {
+            return `^XA
+^PW448
+^LL336
+^FO20,20^BY2,2.5,60^BCN,60,Y,N,N^FD${code}^FS
+^FO20,100^A0N,28,28^FD${line1 || code}^FS
+^FO20,135^A0N,22,22^FD${line2}^FS
+^XZ`;
+        };
+
+        // ============================================
+        // MAIN APP COMPONENT
+        // ============================================
+        function App() {
+            const [activeTab, setActiveTab] = useState('locations');
+
+            // Container state
+            const [lastContainerNumber, setLastContainerNumber] = useState(0);
+            const [containerHistory, setContainerHistory] = useState([]);
+
+            // Load from localStorage on mount
+            useEffect(() => {
+                const savedLastNumber = localStorage.getItem(STORAGE_KEYS.LAST_CONTAINER_NUMBER);
+                const savedHistory = localStorage.getItem(STORAGE_KEYS.CONTAINER_HISTORY);
+
+                if (savedLastNumber) setLastContainerNumber(parseInt(savedLastNumber));
+                if (savedHistory) setContainerHistory(JSON.parse(savedHistory));
+            }, []);
+
+            // Save container state to localStorage
+            const saveContainerState = (lastNum, history) => {
+                localStorage.setItem(STORAGE_KEYS.LAST_CONTAINER_NUMBER, lastNum.toString());
+                localStorage.setItem(STORAGE_KEYS.CONTAINER_HISTORY, JSON.stringify(history));
+                setLastContainerNumber(lastNum);
+                setContainerHistory(history);
+            };
+
+            const tabs = [
+                { id: 'locations', label: '📍 Lokalizacje' },
+                { id: 'containers', label: '📦 Kuwety' },
+                { id: 'bulk', label: '🖨️ Drukuj zbiorczo' },
+                { id: 'history', label: '📋 Historia' },
+            ];
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🏷️ Zebra Label Printer</h1>
+                        <p>eBukieteria WMS - Generator etykiet dla drukarek Zebra</p>
+                    </div>
+
+                    <div className="tabs">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(tab.id)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {activeTab === 'locations' && <LocationsTab />}
+                    {activeTab === 'containers' && (
+                        <ContainersTab
+                            lastNumber={lastContainerNumber}
+                            history={containerHistory}
+                            onSave={saveContainerState}
+                        />
+                    )}
+                    {activeTab === 'bulk' && (
+                        <BulkPrintTab
+                            lastContainerNumber={lastContainerNumber}
+                            containerHistory={containerHistory}
+                            onSaveContainers={saveContainerState}
+                        />
+                    )}
+                    {activeTab === 'history' && (
+                        <HistoryTab history={containerHistory} />
+                    )}
+                </div>
+            );
+        }
+
+        // ============================================
+        // LOCATIONS TAB
+        // ============================================
+        function LocationsTab() {
+            const [warehouse, setWarehouse] = useState('PLO');
+            const [aisle, setAisle] = useState(1);
+            const [rack, setRack] = useState(1);
+            const [shelf, setShelf] = useState(1);
+            const [generatedCodes, setGeneratedCodes] = useState([]);
+            const [showZPL, setShowZPL] = useState(false);
+
+            const selectedWarehouse = WAREHOUSES.find(w => w.code === warehouse);
+            const stats = getWarehouseStats(warehouse);
+            const singleCode = generateLocationCode(warehouse, aisle, rack, shelf);
+
+            const handleGenerateSingle = () => {
+                setGeneratedCodes([singleCode]);
+            };
+
+            const handleGenerateAll = () => {
+                const codes = generateAllLocations(warehouse);
+                setGeneratedCodes(codes);
+            };
+
+            const handlePrint = () => {
+                const zplCommands = generatedCodes.map(code => {
+                    const wh = WAREHOUSES.find(w => w.code === code.split('-')[0]);
+                    return generateZPL(code, code, wh ? wh.name : '');
+                }).join('\n');
+
+                // W rzeczywistej aplikacji tutaj byłoby wysłanie do drukarki
+                console.log('ZPL Commands:', zplCommands);
+                alert(`Wysłano ${generatedCodes.length} etykiet do drukarki!\n\nKody ZPL zostały wygenerowane.`);
+            };
+
+            const handleExport = () => {
+                const content = generatedCodes.join('\n');
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `lokalizacje_${warehouse}_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div>
+                    <div className="stats">
+                        <div className="stat-box">
+                            <div className="number">{stats.total}</div>
+                            <div className="label">Wszystkich lokalizacji</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{stats.aisles}</div>
+                            <div className="label">Alejek</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{stats.racks}</div>
+                            <div className="label">Regałów</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{stats.shelves}</div>
+                            <div className="label">Półek</div>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>Generuj etykiety lokalizacji</h3>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Magazyn</label>
+                                <select value={warehouse} onChange={e => setWarehouse(e.target.value)}>
+                                    {WAREHOUSES.map(wh => (
+                                        <option key={wh.code} value={wh.code}>
+                                            {wh.code} - {wh.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Alejka (1-{selectedWarehouse?.aisles})</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={selectedWarehouse?.aisles}
+                                    value={aisle}
+                                    onChange={e => setAisle(Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedWarehouse?.aisles))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Regał (1-{selectedWarehouse?.racks})</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={selectedWarehouse?.racks}
+                                    value={rack}
+                                    onChange={e => setRack(Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedWarehouse?.racks))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Półka (1-{selectedWarehouse?.shelves})</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={selectedWarehouse?.shelves}
+                                    value={shelf}
+                                    onChange={e => setShelf(Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedWarehouse?.shelves))}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="alert alert-info">
+                            Podgląd kodu: <strong>{singleCode}</strong>
+                        </div>
+
+                        <div className="btn-group">
+                            <button className="btn btn-primary" onClick={handleGenerateSingle}>
+                                📍 Generuj pojedynczą
+                            </button>
+                            <button className="btn btn-success" onClick={handleGenerateAll}>
+                                📋 Generuj wszystkie dla {warehouse} ({stats.total} szt.)
+                            </button>
+                        </div>
+                    </div>
+
+                    {generatedCodes.length > 0 && (
+                        <div className="card">
+                            <h3>Wygenerowane etykiety ({generatedCodes.length})</h3>
+
+                            <div className="alert alert-success">
+                                Zakres: <strong>{generatedCodes[0]}</strong> do <strong>{generatedCodes[generatedCodes.length - 1]}</strong>
+                            </div>
+
+                            <div className="preview">
+                                {generatedCodes.slice(0, 20).map((code, i) => (
+                                    <div key={i} className="preview-item">{code}</div>
+                                ))}
+                                {generatedCodes.length > 20 && (
+                                    <div className="preview-item" style={{textAlign: 'center', color: '#667eea'}}>
+                                        ... i {generatedCodes.length - 20} więcej
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="btn-group">
+                                <button className="btn btn-primary" onClick={handlePrint}>
+                                    🖨️ Drukuj ({generatedCodes.length} etykiet)
+                                </button>
+                                <button className="btn btn-secondary" onClick={handleExport}>
+                                    📥 Eksportuj do TXT
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => setShowZPL(!showZPL)}>
+                                    {showZPL ? '🙈 Ukryj ZPL' : '👁️ Pokaż ZPL'}
+                                </button>
+                            </div>
+
+                            {showZPL && (
+                                <div className="zpl-preview" style={{marginTop: '20px'}}>
+                                    {generateZPL(generatedCodes[0], generatedCodes[0], stats.name)}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ============================================
+        // CONTAINERS TAB
+        // ============================================
+        function ContainersTab({ lastNumber, history, onSave }) {
+            const [startNum, setStartNum] = useState(lastNumber + 1);
+            const [count, setCount] = useState(100);
+            const [generatedCodes, setGeneratedCodes] = useState([]);
+            const [showWarning, setShowWarning] = useState(false);
+
+            useEffect(() => {
+                setStartNum(lastNumber + 1);
+            }, [lastNumber]);
+
+            const endNum = startNum + count - 1;
+
+            // Check for overlapping ranges
+            const checkOverlap = () => {
+                for (const entry of history) {
+                    if (
+                        (startNum >= entry.start && startNum <= entry.end) ||
+                        (endNum >= entry.start && endNum <= entry.end) ||
+                        (startNum <= entry.start && endNum >= entry.end)
+                    ) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            useEffect(() => {
+                setShowWarning(checkOverlap());
+            }, [startNum, count, history]);
+
+            const handleGenerate = () => {
+                const codes = [];
+                for (let i = startNum; i <= endNum; i++) {
+                    codes.push(generateContainerCode(i));
+                }
+                setGeneratedCodes(codes);
+            };
+
+            const handlePrint = () => {
+                if (showWarning) {
+                    if (!confirm('UWAGA: Wybrany zakres pokrywa się z już wydrukowanymi kuwetami! Czy na pewno chcesz kontynuować?')) {
+                        return;
+                    }
+                }
+
+                const zplCommands = generatedCodes.map(code =>
+                    generateZPL(code, code, 'KUWETA')
+                ).join('\n');
+
+                console.log('ZPL Commands:', zplCommands);
+
+                // Save to history
+                const newEntry = {
+                    start: startNum,
+                    end: endNum,
+                    count: count,
+                    date: new Date().toISOString(),
+                };
+                const newHistory = [...history, newEntry];
+                const newLastNumber = Math.max(lastNumber, endNum);
+
+                onSave(newLastNumber, newHistory);
+
+                alert(`Wydrukowano ${count} kuwet!\nZakres: ${generateContainerCode(startNum)} - ${generateContainerCode(endNum)}`);
+                setGeneratedCodes([]);
+            };
+
+            const handleExport = () => {
+                const content = generatedCodes.join('\n');
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kuwety_${generateContainerCode(startNum)}-${generateContainerCode(endNum)}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div>
+                    <div className="stats">
+                        <div className="stat-box">
+                            <div className="number">{lastNumber}</div>
+                            <div className="label">Ostatni wydrukowany</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{lastNumber + 1}</div>
+                            <div className="label">Następny wolny</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{history.length}</div>
+                            <div className="label">Wydrukowanych serii</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{history.reduce((sum, h) => sum + h.count, 0)}</div>
+                            <div className="label">Łącznie kuwet</div>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>Generuj etykiety kuwet</h3>
+
+                        {showWarning && (
+                            <div className="alert alert-warning">
+                                ⚠️ UWAGA: Wybrany zakres pokrywa się z już wydrukowanymi kuwetami!
+                            </div>
+                        )}
+
+                        <div className="alert alert-info">
+                            Sugerowany następny numer: <strong>{generateContainerCode(lastNumber + 1)}</strong>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Od numeru</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={startNum}
+                                    onChange={e => setStartNum(Math.max(1, parseInt(e.target.value) || 1))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Ilość</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="1000"
+                                    value={count}
+                                    onChange={e => setCount(Math.min(1000, Math.max(1, parseInt(e.target.value) || 1)))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Do numeru</label>
+                                <input
+                                    type="text"
+                                    value={generateContainerCode(endNum)}
+                                    readOnly
+                                    style={{background: 'rgba(102,126,234,0.2)'}}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="btn-group">
+                            <button className="btn btn-primary" onClick={handleGenerate}>
+                                📦 Generuj {count} kuwet
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setStartNum(lastNumber + 1)}
+                            >
+                                🔄 Użyj następnego wolnego
+                            </button>
+                        </div>
+                    </div>
+
+                    {generatedCodes.length > 0 && (
+                        <div className="card">
+                            <h3>Wygenerowane kuwety ({generatedCodes.length})</h3>
+
+                            <div className="alert alert-success">
+                                Zakres: <strong>{generatedCodes[0]}</strong> do <strong>{generatedCodes[generatedCodes.length - 1]}</strong>
+                            </div>
+
+                            <div className="preview">
+                                {generatedCodes.slice(0, 10).map((code, i) => (
+                                    <div key={i} className="preview-item">{code}</div>
+                                ))}
+                                {generatedCodes.length > 10 && (
+                                    <div className="preview-item" style={{textAlign: 'center', color: '#667eea'}}>
+                                        ... i {generatedCodes.length - 10} więcej
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="btn-group">
+                                <button
+                                    className={`btn ${showWarning ? 'btn-warning' : 'btn-success'}`}
+                                    onClick={handlePrint}
+                                >
+                                    🖨️ Drukuj i zapisz ({generatedCodes.length} etykiet)
+                                </button>
+                                <button className="btn btn-secondary" onClick={handleExport}>
+                                    📥 Eksportuj do TXT
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {history.length > 0 && (
+                        <div className="card">
+                            <h3>Historia wydrukowanych kuwet</h3>
+                            <div className="history-list">
+                                {[...history].reverse().map((entry, i) => (
+                                    <div key={i} className="history-item">
+                                        <span className="range">
+                                            {generateContainerCode(entry.start)} - {generateContainerCode(entry.end)}
+                                        </span>
+                                        <span>{entry.count} szt.</span>
+                                        <span className="date">
+                                            {new Date(entry.date).toLocaleDateString('pl-PL')}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ============================================
+        // BULK PRINT TAB
+        // ============================================
+        function BulkPrintTab({ lastContainerNumber, containerHistory, onSaveContainers }) {
+            const [selectedWarehouses, setSelectedWarehouses] = useState({
+                PLO: true,
+                WOD: false,
+                TAR: false,
+            });
+            const [containerStart, setContainerStart] = useState(lastContainerNumber + 1);
+            const [containerCount, setContainerCount] = useState(0);
+            const [isGenerating, setIsGenerating] = useState(false);
+
+            useEffect(() => {
+                setContainerStart(lastContainerNumber + 1);
+            }, [lastContainerNumber]);
+
+            const locationStats = useMemo(() => {
+                let total = 0;
+                const details = [];
+
+                WAREHOUSES.forEach(wh => {
+                    if (selectedWarehouses[wh.code]) {
+                        const count = wh.aisles * wh.racks * wh.shelves;
+                        total += count;
+                        const stats = getWarehouseStats(wh.code);
+                        details.push({
+                            code: wh.code,
+                            name: wh.name,
+                            count,
+                            first: stats.first,
+                            last: stats.last,
+                        });
+                    }
+                });
+
+                return { total, details };
+            }, [selectedWarehouses]);
+
+            const totalLabels = locationStats.total + containerCount;
+
+            const handleToggleWarehouse = (code) => {
+                setSelectedWarehouses(prev => ({
+                    ...prev,
+                    [code]: !prev[code]
+                }));
+            };
+
+            const handleSelectAll = () => {
+                const newState = {};
+                WAREHOUSES.forEach(wh => newState[wh.code] = true);
+                setSelectedWarehouses(newState);
+            };
+
+            const handleDeselectAll = () => {
+                const newState = {};
+                WAREHOUSES.forEach(wh => newState[wh.code] = false);
+                setSelectedWarehouses(newState);
+            };
+
+            const handlePrintAll = () => {
+                setIsGenerating(true);
+
+                // Generate all location codes
+                let allCodes = [];
+                locationStats.details.forEach(d => {
+                    const codes = generateAllLocations(d.code);
+                    allCodes = [...allCodes, ...codes];
+                });
+
+                // Generate container codes
+                const containerCodes = [];
+                for (let i = containerStart; i < containerStart + containerCount; i++) {
+                    containerCodes.push(generateContainerCode(i));
+                }
+                allCodes = [...allCodes, ...containerCodes];
+
+                // Generate ZPL
+                const zplCommands = allCodes.map((code, i) => {
+                    const isContainer = code.startsWith('K');
+                    const wh = !isContainer ? WAREHOUSES.find(w => w.code === code.split('-')[0]) : null;
+                    return generateZPL(
+                        code,
+                        code,
+                        isContainer ? 'KUWETA' : (wh ? wh.name : '')
+                    );
+                }).join('\n');
+
+                console.log('ZPL Commands:', zplCommands);
+
+                // Save container history if containers were printed
+                if (containerCount > 0) {
+                    const newEntry = {
+                        start: containerStart,
+                        end: containerStart + containerCount - 1,
+                        count: containerCount,
+                        date: new Date().toISOString(),
+                    };
+                    const newHistory = [...containerHistory, newEntry];
+                    const newLastNumber = Math.max(lastContainerNumber, containerStart + containerCount - 1);
+                    onSaveContainers(newLastNumber, newHistory);
+                }
+
+                setTimeout(() => {
+                    setIsGenerating(false);
+                    alert(`Wydrukowano ${totalLabels} etykiet!\n\nLokalizacje: ${locationStats.total}\nKuwety: ${containerCount}`);
+                }, 500);
+            };
+
+            const handleExportAll = () => {
+                let allCodes = [];
+
+                // Generate all location codes
+                locationStats.details.forEach(d => {
+                    const codes = generateAllLocations(d.code);
+                    allCodes = [...allCodes, ...codes];
+                });
+
+                // Generate container codes
+                for (let i = containerStart; i < containerStart + containerCount; i++) {
+                    allCodes.push(generateContainerCode(i));
+                }
+
+                const content = allCodes.join('\n');
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `wszystkie_etykiety_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div>
+                    <div className="card">
+                        <h3>📍 Lokalizacje do wydruku</h3>
+
+                        <div className="btn-group" style={{marginBottom: '20px'}}>
+                            <button className="btn btn-secondary" onClick={handleSelectAll}>
+                                ✅ Zaznacz wszystkie
+                            </button>
+                            <button className="btn btn-secondary" onClick={handleDeselectAll}>
+                                ❌ Odznacz wszystkie
+                            </button>
+                        </div>
+
+                        <div className="checkbox-group">
+                            {WAREHOUSES.map(wh => {
+                                const stats = getWarehouseStats(wh.code);
+                                return (
+                                    <div
+                                        key={wh.code}
+                                        className="checkbox-item"
+                                        onClick={() => handleToggleWarehouse(wh.code)}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedWarehouses[wh.code]}
+                                            onChange={() => {}}
+                                        />
+                                        <div className="info">
+                                            <div className="name">{wh.code} - {wh.name}</div>
+                                            <div className="details">
+                                                {stats.first} do {stats.last}
+                                            </div>
+                                        </div>
+                                        <div className="count">{stats.total} etykiet</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>📦 Kuwety do wydruku</h3>
+
+                        <div className="alert alert-info">
+                            Następny wolny numer: <strong>{generateContainerCode(lastContainerNumber + 1)}</strong>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Od numeru</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={containerStart}
+                                    onChange={e => setContainerStart(Math.max(1, parseInt(e.target.value) || 1))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Ilość (0 = brak)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="1000"
+                                    value={containerCount}
+                                    onChange={e => setContainerCount(Math.min(1000, Math.max(0, parseInt(e.target.value) || 0)))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Do numeru</label>
+                                <input
+                                    type="text"
+                                    value={containerCount > 0 ? generateContainerCode(containerStart + containerCount - 1) : '-'}
+                                    readOnly
+                                    style={{background: 'rgba(102,126,234,0.2)'}}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="summary-box">
+                        <h4>📊 PODSUMOWANIE WYDRUKU</h4>
+
+                        {locationStats.details.map(d => (
+                            <div key={d.code} className="summary-row">
+                                <span>{d.code} - {d.name}</span>
+                                <span>{d.count} etykiet</span>
+                            </div>
+                        ))}
+
+                        {containerCount > 0 && (
+                            <div className="summary-row">
+                                <span>Kuwety ({generateContainerCode(containerStart)} - {generateContainerCode(containerStart + containerCount - 1)})</span>
+                                <span>{containerCount} etykiet</span>
+                            </div>
+                        )}
+
+                        <div className="summary-row total">
+                            <span>RAZEM</span>
+                            <span>{totalLabels} etykiet</span>
+                        </div>
+
+                        <div className="btn-group" style={{justifyContent: 'center', marginTop: '20px'}}>
+                            <button
+                                className="btn btn-success"
+                                onClick={handlePrintAll}
+                                disabled={totalLabels === 0 || isGenerating}
+                                style={{fontSize: '16px', padding: '15px 30px'}}
+                            >
+                                {isGenerating ? '⏳ Generowanie...' : `🖨️ DRUKUJ WSZYSTKO (${totalLabels})`}
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={handleExportAll}
+                                disabled={totalLabels === 0}
+                            >
+                                📥 Eksportuj listę
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================
+        // HISTORY TAB
+        // ============================================
+        function HistoryTab({ history }) {
+            const totalContainers = history.reduce((sum, h) => sum + h.count, 0);
+
+            const handleClearHistory = () => {
+                if (confirm('Czy na pewno chcesz wyczyścić całą historię? Tej operacji nie można cofnąć!')) {
+                    localStorage.removeItem(STORAGE_KEYS.LAST_CONTAINER_NUMBER);
+                    localStorage.removeItem(STORAGE_KEYS.CONTAINER_HISTORY);
+                    window.location.reload();
+                }
+            };
+
+            const handleExportHistory = () => {
+                const lines = [
+                    'Historia wydrukowanych kuwet',
+                    '============================',
+                    '',
+                    ...history.map(h =>
+                        `${generateContainerCode(h.start)} - ${generateContainerCode(h.end)} | ${h.count} szt. | ${new Date(h.date).toLocaleDateString('pl-PL')}`
+                    ),
+                    '',
+                    `Łącznie: ${totalContainers} kuwet`,
+                ];
+
+                const content = lines.join('\n');
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `historia_kuwet_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div>
+                    <div className="stats">
+                        <div className="stat-box">
+                            <div className="number">{history.length}</div>
+                            <div className="label">Wydrukowanych serii</div>
+                        </div>
+                        <div className="stat-box">
+                            <div className="number">{totalContainers}</div>
+                            <div className="label">Łącznie kuwet</div>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>📋 Historia wydrukowanych kuwet</h3>
+
+                        {history.length === 0 ? (
+                            <div className="alert alert-info">
+                                Brak historii. Wydrukuj pierwsze kuwety, aby zobaczyć je tutaj.
+                            </div>
+                        ) : (
+                            <>
+                                <div className="history-list" style={{maxHeight: '400px'}}>
+                                    {[...history].reverse().map((entry, i) => (
+                                        <div key={i} className="history-item">
+                                            <span className="range">
+                                                {generateContainerCode(entry.start)} - {generateContainerCode(entry.end)}
+                                            </span>
+                                            <span>{entry.count} szt.</span>
+                                            <span className="date">
+                                                {new Date(entry.date).toLocaleDateString('pl-PL')} {new Date(entry.date).toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'})}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="btn-group" style={{marginTop: '20px'}}>
+                                    <button className="btn btn-secondary" onClick={handleExportHistory}>
+                                        📥 Eksportuj historię
+                                    </button>
+                                    <button className="btn btn-warning" onClick={handleClearHistory}>
+                                        🗑️ Wyczyść historię
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="card">
+                        <h3>📍 Konfiguracja magazynów</h3>
+                        <div style={{overflowX: 'auto'}}>
+                            <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                                <thead>
+                                    <tr style={{borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
+                                        <th style={{padding: '12px', textAlign: 'left'}}>Magazyn</th>
+                                        <th style={{padding: '12px', textAlign: 'center'}}>Alejki</th>
+                                        <th style={{padding: '12px', textAlign: 'center'}}>Regały</th>
+                                        <th style={{padding: '12px', textAlign: 'center'}}>Półki</th>
+                                        <th style={{padding: '12px', textAlign: 'center'}}>Łącznie</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {WAREHOUSES.map(wh => (
+                                        <tr key={wh.code} style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                                            <td style={{padding: '12px'}}>
+                                                <strong>{wh.code}</strong> - {wh.name}
+                                            </td>
+                                            <td style={{padding: '12px', textAlign: 'center'}}>{wh.aisles}</td>
+                                            <td style={{padding: '12px', textAlign: 'center'}}>{wh.racks}</td>
+                                            <td style={{padding: '12px', textAlign: 'center'}}>{wh.shelves}</td>
+                                            <td style={{padding: '12px', textAlign: 'center', color: '#667eea', fontWeight: 'bold'}}>
+                                                {wh.aisles * wh.racks * wh.shelves}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================
+        // RENDER APP
+        // ============================================
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
