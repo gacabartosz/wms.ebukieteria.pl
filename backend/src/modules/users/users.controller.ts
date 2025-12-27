@@ -61,3 +61,43 @@ export const deactivateUser = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+// ============================================
+// WAREHOUSE ASSIGNMENT CONTROLLERS
+// ============================================
+
+export const getUserWarehouses = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await usersService.getUserWarehouses(req.params.id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const assignWarehouse = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await usersService.assignWarehouse(req.params.id, req.body.warehouseId);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unassignWarehouse = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await usersService.unassignWarehouse(req.params.id, req.params.warehouseId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserWarehouses = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await usersService.updateUserWarehouses(req.params.id, req.body.warehouseIds);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};

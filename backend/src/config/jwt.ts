@@ -3,7 +3,7 @@ import { config } from './env.js';
 
 export interface TokenPayload {
   userId: string;
-  phone: string;
+  username: string;
   role: string;
   permissions: string[];
 }

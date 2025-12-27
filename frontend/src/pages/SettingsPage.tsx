@@ -106,8 +106,8 @@ export default function SettingsPage() {
               <span className="text-white font-medium">{user?.name}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Telefon</span>
-              <span className="text-white font-mono">{user?.phone}</span>
+              <span className="text-slate-400">Login</span>
+              <span className="text-white font-mono">{user?.username}</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-slate-400">Rola</span>

@@ -46,6 +46,18 @@ enum InventoryStatus {
   CANCELLED
 }
 
+enum InventoryIntroStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductSource {
+  IMPORT
+  INVENTORY_INTRO
+  MANUAL
+}
+
 enum AuditAction {
   STOCK_IN
   STOCK_OUT
@@ -80,7 +92,8 @@ enum AuditAction {
 
 model User {
   id              String    @id @default(uuid())
-  phone           String    @unique
+  username        String    @unique // Login (np. "Iwona", "Admin")
+  phone           String?   // Opcjonalne
   password        String
   name            String
   role            Role      @default(WAREHOUSE)
@@ -93,14 +106,19 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  createdDocuments      Document[]       @relation("DocumentCreatedBy")
-  confirmedDocuments    Document[]       @relation("DocumentConfirmedBy")
-  scannedLines          DocumentLine[]   @relation("LineScannedBy")
-  auditLogs             AuditLog[]
-  createdInventories    InventoryCount[] @relation("InventoryCreatedBy")
-  countedInventoryLines InventoryLine[]  @relation("InventoryLineCounted")
+  createdDocuments       Document[]       @relation("DocumentCreatedBy")
+  confirmedDocuments     Document[]       @relation("DocumentConfirmedBy")
+  scannedLines           DocumentLine[]   @relation("LineScannedBy")
+  auditLogs              AuditLog[]
+  createdInventories     InventoryCount[] @relation("InventoryCreatedBy")
+  countedInventoryLines  InventoryLine[]  @relation("InventoryLineCounted")
+  createdInventoryIntros InventoryIntro[] @relation("InventoryIntroCreatedBy")
+  createdInventoryIntroLines InventoryIntroLine[] @relation("InventoryIntroLineCreatedBy")
 
-  @@index([phone])
+  // Przypisane magazyny (Admin może przypisać użytkownika do magazynów)
+  assignedWarehouses     UserWarehouse[]
+
+  @@index([username])
   @@index([role])
 }
 
@@ -118,11 +136,32 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  locations   Location[]
-  documents   Document[]
-  inventories InventoryCount[]
+  locations        Location[]
+  documents        Document[]
+  inventories      InventoryCount[]
+  inventoryIntros  InventoryIntro[]
+
+  // Przypisani użytkownicy
+  assignedUsers    UserWarehouse[]
 
   @@index([code])
+}
+
+// ============================================
+// USER-WAREHOUSE JUNCTION (Przypisanie użytkowników do magazynów)
+// ============================================
+
+model UserWarehouse {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime  @default(now())
+
+  @@unique([userId, warehouseId])
+  @@index([userId])
+  @@index([warehouseId])
 }
 
 // ============================================
@@ -161,27 +200,29 @@ model Location {
 // ============================================
 
 model Product {
-  id          String   @id @default(uuid())
-  sku         String   @unique
-  ean         String   // EAN/kod kreskowy - wymagany
+  id          String        @id @default(uuid())
+  sku         String        @unique
+  ean         String        // EAN/kod kreskowy - wymagany
   name        String
-  description String?  // Opis produktu
-  unit        String   @default("szt")
-  zone        String?  // Magazyn (grh, wodna)
-  category    String?  // Rodzaj (towar, usługa)
+  description String?       // Opis produktu
+  unit        String        @default("szt")
+  zone        String?       // Magazyn (grh, wodna)
+  category    String?       // Rodzaj (towar, usługa)
   owner       String?
   imageUrl    String?
-  priceNetto  Decimal? @db.Decimal(10, 2) // Cena detaliczna netto
-  priceBrutto Decimal? @db.Decimal(10, 2) // Cena detaliczna brutto
-  vatRate     Int?     // Stawka VAT (23, 8, 5, 0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  priceNetto  Decimal?      @db.Decimal(10, 2) // Cena detaliczna netto
+  priceBrutto Decimal?      @db.Decimal(10, 2) // Cena detaliczna brutto
+  vatRate     Int?          // Stawka VAT (23, 8, 5, 0)
+  source      ProductSource @default(IMPORT)   // Źródło produktu
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  stocks         Stock[]
-  documentLines  DocumentLine[]
-  inventoryLines InventoryLine[]
-  auditLogs      AuditLog[]
+  stocks              Stock[]
+  documentLines       DocumentLine[]
+  inventoryLines      InventoryLine[]
+  inventoryIntroLines InventoryIntroLine[]
+  auditLogs           AuditLog[]
 
   @@index([sku])
   @@index([ean])
@@ -356,6 +397,68 @@ model AuditLog {
   @@index([productId])
   @@index([documentId])
   @@index([createdAt])
+}
+
+// ============================================
+// INVENTORY INTRO MODEL (Inwentaryzacja Wprowadzająca)
+// ============================================
+
+model InventoryIntro {
+  id                     String               @id @default(uuid())
+  number                 String               @unique // INV-INTRO-001
+  name                   String
+  status                 InventoryIntroStatus @default(IN_PROGRESS)
+
+  warehouseId            String
+  warehouse              Warehouse            @relation(fields: [warehouseId], references: [id])
+
+  defaultLocationBarcode String               // TAR-KWIACIARNIA-01
+
+  createdById            String
+  createdBy              User                 @relation("InventoryIntroCreatedBy", fields: [createdById], references: [id])
+
+  lines                  InventoryIntroLine[]
+
+  createdAt              DateTime             @default(now())
+  completedAt            DateTime?
+  updatedAt              DateTime             @updatedAt
+
+  @@index([warehouseId])
+  @@index([status])
+}
+
+// ============================================
+// INVENTORY INTRO LINE MODEL
+// ============================================
+
+model InventoryIntroLine {
+  id               String         @id @default(uuid())
+
+  inventoryIntroId String
+  inventoryIntro   InventoryIntro @relation(fields: [inventoryIntroId], references: [id], onDelete: Cascade)
+
+  // Po zakończeniu - połączenie z produktem
+  productId        String?
+  product          Product?       @relation(fields: [productId], references: [id])
+
+  // Dane wprowadzone przez użytkownika
+  imageUrl         String         // WYMAGANE
+  priceBrutto      Decimal        @db.Decimal(10, 2) // WYMAGANE
+  quantity         Int            @default(1)
+  unit             String         @default("szt") // szt, kg, opak
+  ean              String?        // opcjonalne
+
+  // Auto-generowane
+  tempSku          String         // INV-20251227-0001
+  tempName         String         // Produkt-0001
+
+  // Kto dodał i kiedy
+  createdById      String?
+  createdBy        User?          @relation("InventoryIntroLineCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@index([inventoryIntroId])
+  @@index([createdById])
 }
 
 // ============================================

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ClipboardList, Check, X, Clock, Download, Edit2, Trash2 } from 'lucide-react';
+import { Plus, ClipboardList, Check, X, Clock, Download, Edit2, Trash2, Package, Camera, FileSpreadsheet, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -9,7 +9,9 @@ import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { inventoryService } from '../services/inventoryService';
+import { inventoryIntroService } from '../services/inventoryIntroService';
 import { warehousesService } from '../services/warehousesService';
+import { useAuthStore } from '../store/authStore';
 import type { InventoryCount } from '../types';
 import clsx from 'clsx';
 
@@ -19,19 +21,38 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; color
   CANCELLED: { icon: <X className="w-4 h-4" />, label: 'Anulowana', color: 'text-red-400' },
 };
 
+type InventoryType = 'standard' | 'intro' | null;
+
 export default function InventoryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [showForm, setShowForm] = useState(false);
+  const [inventoryType, setInventoryType] = useState<InventoryType>(null);
   const [filters, setFilters] = useState({ status: '' });
   const [newInventory, setNewInventory] = useState({ name: '', warehouseId: '' });
+  const [newIntroInventory, setNewIntroInventory] = useState({ name: '' });
   const [editingInventory, setEditingInventory] = useState<InventoryCount | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<InventoryCount | null>(null);
 
+  // Export state (only for ADMIN)
+  const [selectedIntros, setSelectedIntros] = useState<Set<string>>(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
     queryFn: () => warehousesService.getWarehouses({ limit: 100 }),
+  });
+
+  // Get default warehouse for intro inventory
+  const { data: defaultWarehouse } = useQuery({
+    queryKey: ['inventory-intro-default-warehouse'],
+    queryFn: () => inventoryIntroService.getDefaultWarehouse(),
+    enabled: inventoryType === 'intro',
   });
 
   const { data, isLoading } = useQuery({
@@ -39,6 +60,12 @@ export default function InventoryPage() {
     queryFn: () => inventoryService.getInventoryCounts({
       status: filters.status || undefined,
     }),
+  });
+
+  // Get intro inventories list
+  const { data: introData } = useQuery({
+    queryKey: ['inventory-intro-list'],
+    queryFn: () => inventoryIntroService.getAll(),
   });
 
   const createMutation = useMutation({
@@ -49,7 +76,23 @@ export default function InventoryPage() {
       navigate(`/inventory/${inv.id}`);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Błąd tworzenia');
+      toast.error(error.response?.data?.error || 'Blad tworzenia');
+    },
+  });
+
+  // Create intro inventory mutation
+  const createIntroMutation = useMutation({
+    mutationFn: inventoryIntroService.create,
+    onSuccess: (inv) => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-intro-list'] });
+      toast.success('Inwentaryzacja utworzona');
+      setShowForm(false);
+      setInventoryType(null);
+      setNewIntroInventory({ name: '' });
+      navigate(`/inventory-intro/${inv.id}`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Blad tworzenia');
     },
   });
 
@@ -81,10 +124,34 @@ export default function InventoryPage() {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInventory.name || !newInventory.warehouseId) {
-      toast.error('Wypełnij wszystkie pola');
+      toast.error('Wypelnij wszystkie pola');
       return;
     }
     createMutation.mutate(newInventory);
+  };
+
+  const handleCreateIntro = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newIntroInventory.name) {
+      toast.error('Podaj nazwe inwentaryzacji');
+      return;
+    }
+    if (!defaultWarehouse) {
+      toast.error('Brak domyslnego magazynu');
+      return;
+    }
+    createIntroMutation.mutate({
+      name: newIntroInventory.name,
+      warehouseId: defaultWarehouse.id,
+      defaultLocationBarcode: 'TAR-KWIACIARNIA-01',
+    });
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setInventoryType(null);
+    setNewInventory({ name: '', warehouseId: '' });
+    setNewIntroInventory({ name: '' });
   };
 
   const handleExport = async (e: React.MouseEvent, id: string, name: string) => {
@@ -125,6 +192,70 @@ export default function InventoryPage() {
     }
   };
 
+  // Toggle selection for export
+  const toggleIntroSelection = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedIntros);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIntros(newSelected);
+  };
+
+  // Export handlers
+  const handleExportExcel = async () => {
+    if (selectedIntros.size === 0) {
+      toast.error('Wybierz co najmniej jedną inwentaryzację');
+      return;
+    }
+    setExporting(true);
+    try {
+      const blob = await inventoryIntroService.exportExcel(Array.from(selectedIntros));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inwentaryzacja_${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Eksport Excel zakończony');
+      setShowExportModal(false);
+      setSelectedIntros(new Set());
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Błąd eksportu');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    if (selectedIntros.size === 0) {
+      toast.error('Wybierz co najmniej jedną inwentaryzację');
+      return;
+    }
+    setExporting(true);
+    try {
+      const blob = await inventoryIntroService.exportCSV(Array.from(selectedIntros));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inwentaryzacja_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Eksport CSV zakończony');
+      setShowExportModal(false);
+      setSelectedIntros(new Set());
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Błąd eksportu');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Get completed intro inventories
+  const completedIntros = introData?.data.filter(inv => inv.status === 'COMPLETED') || [];
+
   return (
     <Layout
       title="Inwentaryzacja"
@@ -140,36 +271,107 @@ export default function InventoryPage() {
     >
       {/* Create form */}
       {showForm && (
-        <form onSubmit={handleCreate} className="glass-card p-4 mb-4 space-y-3 animate-fade-in">
+        <div className="glass-card p-4 mb-4 space-y-4 animate-fade-in">
           <h3 className="font-medium text-white">Nowa inwentaryzacja</h3>
-          <Input
-            label="Nazwa"
-            value={newInventory.name}
-            onChange={(e) => setNewInventory({ ...newInventory, name: e.target.value })}
-            placeholder="np. Inwentaryzacja Q4 2024"
-          />
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">Magazyn</label>
-            <select
-              value={newInventory.warehouseId}
-              onChange={(e) => setNewInventory({ ...newInventory, warehouseId: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
+
+          {/* Type selection */}
+          {!inventoryType && (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setInventoryType('standard')}
+                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary-500/50 transition-all text-left"
+              >
+                <Package className="w-8 h-8 text-blue-400 mb-2" />
+                <div className="font-medium text-white">Standardowa</div>
+                <div className="text-xs text-slate-400">Istniejace produkty</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInventoryType('intro')}
+                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-green-500/50 transition-all text-left"
+              >
+                <Camera className="w-8 h-8 text-green-400 mb-2" />
+                <div className="font-medium text-white">Nowe produkty</div>
+                <div className="text-xs text-slate-400">Ze zdjeciem i cena</div>
+              </button>
+            </div>
+          )}
+
+          {/* Standard inventory form */}
+          {inventoryType === 'standard' && (
+            <form onSubmit={handleCreate} className="space-y-3">
+              <Input
+                label="Nazwa"
+                value={newInventory.name}
+                onChange={(e) => setNewInventory({ ...newInventory, name: e.target.value })}
+                placeholder="np. Inwentaryzacja Q4 2024"
+              />
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Magazyn</label>
+                <select
+                  value={newInventory.warehouseId}
+                  onChange={(e) => setNewInventory({ ...newInventory, warehouseId: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
+                >
+                  <option value="">Wybierz magazyn</option>
+                  {warehousesData?.data.map((wh) => (
+                    <option key={wh.id} value={wh.id}>{wh.code} - {wh.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={handleCloseForm} className="flex-1">
+                  Anuluj
+                </Button>
+                <Button type="submit" loading={createMutation.isPending} className="flex-1">
+                  Utworz
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Intro inventory form - simplified */}
+          {inventoryType === 'intro' && (
+            <form onSubmit={handleCreateIntro} className="space-y-3">
+              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="flex items-center gap-2 text-green-400 text-sm">
+                  <Camera className="w-4 h-4" />
+                  <span className="font-medium">TAR-KWIACIARNIA</span>
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  Domyslny magazyn i lokalizacja
+                </div>
+              </div>
+              <Input
+                label="Nazwa inwentaryzacji"
+                value={newIntroInventory.name}
+                onChange={(e) => setNewIntroInventory({ name: e.target.value })}
+                placeholder="np. Przyjecie towaru 27.12"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={handleCloseForm} className="flex-1">
+                  Anuluj
+                </Button>
+                <Button type="submit" loading={createIntroMutation.isPending} className="flex-1">
+                  Utworz
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Back button if type selected */}
+          {inventoryType && (
+            <button
+              type="button"
+              onClick={() => setInventoryType(null)}
+              className="text-sm text-slate-400 hover:text-white"
             >
-              <option value="">Wybierz magazyn</option>
-              {warehousesData?.data.map((wh) => (
-                <option key={wh.id} value={wh.id}>{wh.code} - {wh.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={() => setShowForm(false)} className="flex-1">
-              Anuluj
-            </Button>
-            <Button type="submit" loading={createMutation.isPending} className="flex-1">
-              Utwórz
-            </Button>
-          </div>
-        </form>
+              &larr; Zmien typ
+            </button>
+          )}
+        </div>
       )}
 
       {/* Edit Modal */}
@@ -318,6 +520,135 @@ export default function InventoryPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Intro Inventories Section */}
+      {introData && introData.data.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-400 flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              Inwentaryzacje nowych produktow
+            </h3>
+            {/* Export button for ADMIN */}
+            {isAdmin && completedIntros.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowExportModal(true)}
+                icon={<Download className="w-4 h-4" />}
+              >
+                Eksport ({selectedIntros.size > 0 ? selectedIntros.size : 'wybierz'})
+              </Button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {introData.data.map((inv) => {
+              const status = statusConfig[inv.status];
+              const isSelected = selectedIntros.has(inv.id);
+              const canSelect = isAdmin && inv.status === 'COMPLETED';
+
+              return (
+                <div
+                  key={inv.id}
+                  onClick={() => navigate(`/inventory-intro/${inv.id}`)}
+                  className={clsx(
+                    'glass-card p-4 w-full text-left hover:bg-white/5 transition-colors cursor-pointer border-l-4',
+                    isSelected ? 'border-primary-500 bg-primary-500/10' : 'border-green-500/50'
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      {/* Checkbox for ADMIN on completed inventories */}
+                      {canSelect && (
+                        <button
+                          onClick={(e) => toggleIntroSelection(e, inv.id)}
+                          className={clsx(
+                            'w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0',
+                            isSelected
+                              ? 'bg-primary-500 border-primary-500'
+                              : 'border-white/30 hover:border-white/50'
+                          )}
+                        >
+                          {isSelected && <Check className="w-4 h-4 text-white" />}
+                        </button>
+                      )}
+                      <div className="font-medium text-white">{inv.name}</div>
+                    </div>
+                    <div className={clsx('flex items-center gap-1', status.color)}>
+                      {status.icon}
+                      <span className="text-xs">{status.label}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">
+                      {inv.warehouse?.code} • {inv._count?.lines || 0} produktow
+                    </span>
+                    <span className="text-slate-500 text-xs">
+                      {format(new Date(inv.createdAt), 'd MMM HH:mm', { locale: pl })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal for ADMIN */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-6 w-full max-w-md animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-4">Eksport inwentaryzacji</h3>
+
+            {selectedIntros.size === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-slate-400 mb-4">
+                  Zaznacz zakończone inwentaryzacje do eksportu używając checkboxów na liście.
+                </p>
+                <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+                  OK
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-slate-400 mb-4">
+                  Wybrano <span className="text-white font-medium">{selectedIntros.size}</span> inwentaryzacji do eksportu.
+                </p>
+                <p className="text-xs text-slate-500 mb-4">
+                  Eksport zawiera: Lp., Zdjęcie, Nazwa, EAN, Ilość, Jedn., Cena brutto, CENA NETTO zakupu (brutto/1.23/2)
+                </p>
+
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleExportExcel}
+                    loading={exporting}
+                    icon={<FileSpreadsheet className="w-5 h-5" />}
+                    className="w-full"
+                  >
+                    Eksport do Excel (.xlsx)
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleExportCSV}
+                    loading={exporting}
+                    icon={<FileText className="w-5 h-5" />}
+                    className="w-full"
+                  >
+                    Eksport do CSV
+                  </Button>
+                </div>
+
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="w-full mt-4 text-sm text-slate-400 hover:text-white"
+                >
+                  Anuluj
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </Layout>

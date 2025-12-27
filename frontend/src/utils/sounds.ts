@@ -1,7 +1,7 @@
 // Sound themes for scanner feedback
 
 export type SoundTheme = 'classic' | 'material' | 'ios' | 'retro' | 'minimal' | 'none';
-export type SoundType = 'success' | 'error' | 'warning' | 'location' | 'container';
+export type SoundType = 'success' | 'error' | 'warning' | 'location' | 'container' | 'click';
 
 interface SoundConfig {
   frequency: number;
@@ -27,6 +27,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 1200, type: 'sine', duration: 0.1, gain: 0.3 },
       error: { frequency: 300, frequency2: 200, type: 'square', duration: 0.3, gain: 0.2 },
       warning: { frequency: 800, type: 'triangle', duration: 0.15, gain: 0.25 },
+      click: { frequency: 1800, type: 'sine', duration: 0.03, gain: 0.15 },
       location: [
         { frequency: 1000, type: 'sine', duration: 0.08, gain: 0.3 },
         { frequency: 1400, type: 'sine', duration: 0.08, gain: 0.3 },
@@ -45,6 +46,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 880, frequency2: 1320, type: 'sine', duration: 0.15, gain: 0.25, ramp: 0.1 },
       error: { frequency: 220, frequency2: 165, type: 'triangle', duration: 0.4, gain: 0.2 },
       warning: { frequency: 587, type: 'sine', duration: 0.2, gain: 0.2 },
+      click: { frequency: 1500, type: 'sine', duration: 0.04, gain: 0.12 },
       location: [
         { frequency: 523, type: 'sine', duration: 0.1, gain: 0.25 },
         { frequency: 784, type: 'sine', duration: 0.15, gain: 0.25 },
@@ -63,6 +65,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 1567, type: 'sine', duration: 0.08, gain: 0.2 },
       error: { frequency: 262, frequency2: 196, type: 'sine', duration: 0.35, gain: 0.25 },
       warning: { frequency: 1047, type: 'sine', duration: 0.12, gain: 0.2 },
+      click: { frequency: 1400, type: 'sine', duration: 0.025, gain: 0.1 },
       location: [
         { frequency: 1319, type: 'sine', duration: 0.06, gain: 0.2 },
         { frequency: 1568, type: 'sine', duration: 0.1, gain: 0.2 },
@@ -81,6 +84,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 660, frequency2: 880, type: 'square', duration: 0.12, gain: 0.15 },
       error: { frequency: 150, frequency2: 100, type: 'square', duration: 0.4, gain: 0.15 },
       warning: { frequency: 440, type: 'square', duration: 0.15, gain: 0.12 },
+      click: { frequency: 1200, type: 'square', duration: 0.02, gain: 0.08 },
       location: [
         { frequency: 523, type: 'square', duration: 0.08, gain: 0.12 },
         { frequency: 698, type: 'square', duration: 0.08, gain: 0.12 },
@@ -101,6 +105,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 1400, type: 'sine', duration: 0.05, gain: 0.15 },
       error: { frequency: 400, type: 'sine', duration: 0.2, gain: 0.15 },
       warning: { frequency: 900, type: 'sine', duration: 0.08, gain: 0.12 },
+      click: { frequency: 1600, type: 'sine', duration: 0.02, gain: 0.08 },
       location: [
         { frequency: 1200, type: 'sine', duration: 0.04, gain: 0.12 },
         { frequency: 1500, type: 'sine', duration: 0.06, gain: 0.12 },
@@ -119,6 +124,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       success: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       error: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       warning: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
+      click: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       location: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       container: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
     },
@@ -200,6 +206,7 @@ const playSound = (type: SoundType) => {
         success: 50,
         error: [100, 50, 100],
         warning: [50, 30, 50],
+        click: 10,
         location: [30, 20, 30],
         container: [40, 20, 40],
       };
@@ -230,6 +237,7 @@ const playSound = (type: SoundType) => {
         success: 30,
         error: [50, 30, 50],
         warning: 40,
+        click: 5,
         location: [20, 15, 20],
         container: [25, 15, 25],
       };
@@ -254,6 +262,10 @@ export const playLocationBeep = () => {
 
 export const playContainerBeep = () => {
   playSound('container');
+};
+
+export const playClickBeep = () => {
+  playSound('click');
 };
 
 // Preview a specific theme's sound

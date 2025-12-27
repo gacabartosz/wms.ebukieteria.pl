@@ -9,7 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const [phone, setPhone] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,15 +17,15 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!phone || !password) {
-      toast.error('Wprowadz numer telefonu i haslo');
+    if (!username || !password) {
+      toast.error('Wprowadz login i haslo');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await authService.login(phone, password);
+      const response = await authService.login(username, password);
       setAuth(response.user, response.accessToken, response.refreshToken);
       toast.success(`Witaj, ${response.user.name}!`);
       navigate('/');
@@ -39,15 +39,33 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 safe-area-top safe-area-bottom relative overflow-hidden">
-      {/* Noise overlay */}
-      <div className="noise-overlay" />
-
-      {/* Background orbs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="bg-orb bg-orb-pink w-[500px] h-[500px] -top-48 -right-48 animate-float" style={{ animationDelay: '0s' }} />
-        <div className="bg-orb bg-orb-purple w-[400px] h-[400px] top-1/2 -left-48 animate-float" style={{ animationDelay: '1s' }} />
-        <div className="bg-orb bg-orb-blue w-[350px] h-[350px] -bottom-32 right-1/4 animate-float" style={{ animationDelay: '2s' }} />
+      {/* Video background with flowers from ebukieteria.pl */}
+      <div className="absolute inset-0 z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute w-full h-full object-cover"
+        >
+          <source
+            src="/flowers-bg.mp4"
+            type="video/mp4"
+          />
+        </video>
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/60 via-pink-900/50 to-slate-900/70" />
+        <div className="absolute inset-0 bg-black/20" />
       </div>
+
+      {/* Subtle floating accents */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
+        <div className="absolute w-96 h-96 -top-20 -right-20 bg-pink-500/20 rounded-full blur-3xl animate-float" />
+        <div className="absolute w-80 h-80 top-1/2 -left-20 bg-purple-500/15 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      </div>
+
+      {/* Noise overlay */}
+      <div className="noise-overlay z-[2]" />
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
         {/* Logo */}
@@ -83,17 +101,16 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-white/70 mb-2 ml-1">
-                Numer telefonu
+              <label htmlFor="username" className="block text-sm font-medium text-white/70 mb-2 ml-1">
+                Login
               </label>
               <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-5 py-4 rounded-2xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-lg"
-                placeholder="+48 000 000 001"
-                autoComplete="tel"
+                autoComplete="username"
                 disabled={isLoading}
               />
             </div>
@@ -109,7 +126,6 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-5 py-4 pr-14 rounded-2xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-lg"
-                  placeholder="********"
                   autoComplete="current-password"
                   disabled={isLoading}
                 />
@@ -143,14 +159,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-xs text-white/30 text-center mb-3">Dane testowe:</p>
-            <div className="space-y-1 text-xs text-white/40 text-center font-mono">
-              <p>+48000000001 / admin123</p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

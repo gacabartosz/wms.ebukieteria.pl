@@ -17,6 +17,7 @@ import productsRoutes from './modules/products/products.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
 import documentsRoutes from './modules/documents/documents.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
+import inventoryIntroRoutes from './modules/inventory-intro/inventory-intro.routes.js';
 import auditRoutes from './modules/audit/audit.routes.js';
 import containersRoutes from './modules/containers/containers.routes.js';
 
@@ -24,6 +25,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Trust proxy (for rate limiting behind nginx/reverse proxy)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
@@ -60,6 +64,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/inventory-intro', inventoryIntroRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/containers', containersRoutes);
 

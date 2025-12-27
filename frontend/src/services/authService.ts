@@ -2,8 +2,8 @@ import api from './api';
 import type { AuthResponse } from '../types';
 
 export const authService = {
-  login: async (phone: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login', { phone, password });
+  login: async (username: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/auth/login', { username, password });
     return response.data;
   },
 

@@ -16,4 +16,10 @@ router.put('/:id', validateBody(updateUserSchema), usersController.updateUser);
 router.put('/:id/password', validateBody(resetPasswordSchema), usersController.resetPassword);
 router.delete('/:id', usersController.deactivateUser);
 
+// Warehouse assignment routes (Admin only)
+router.get('/:id/warehouses', usersController.getUserWarehouses);
+router.post('/:id/warehouses', usersController.assignWarehouse);
+router.put('/:id/warehouses', usersController.updateUserWarehouses);
+router.delete('/:id/warehouses/:warehouseId', usersController.unassignWarehouse);
+
 export default router;

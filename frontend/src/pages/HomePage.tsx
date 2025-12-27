@@ -59,7 +59,6 @@ const operations: OperationTile[] = [
     icon: ClipboardList,
     path: '/inventory',
     color: 'from-purple-400 to-violet-600',
-    roles: ['ADMIN', 'MANAGER'],
   },
   {
     id: 'search',

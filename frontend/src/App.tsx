@@ -10,6 +10,7 @@ import SearchPage from './pages/SearchPage';
 import StockPage from './pages/StockPage';
 import InventoryPage from './pages/InventoryPage';
 import InventoryDetailPage from './pages/InventoryDetailPage';
+import InventoryIntroDetailPage from './pages/InventoryIntroDetailPage';
 import LocationsPage from './pages/LocationsPage';
 import AuditPage from './pages/AuditPage';
 import WarehousesPage from './pages/WarehousesPage';
@@ -81,7 +82,7 @@ function App() {
       <Route
         path="/inventory"
         element={
-          <ProtectedRoute roles={['ADMIN', 'MANAGER']}>
+          <ProtectedRoute roles={['ADMIN', 'MANAGER', 'WAREHOUSE']}>
             <InventoryPage />
           </ProtectedRoute>
         }
@@ -89,8 +90,16 @@ function App() {
       <Route
         path="/inventory/:id"
         element={
-          <ProtectedRoute roles={['ADMIN', 'MANAGER']}>
+          <ProtectedRoute roles={['ADMIN', 'MANAGER', 'WAREHOUSE']}>
             <InventoryDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory-intro/:id"
+        element={
+          <ProtectedRoute roles={['ADMIN', 'MANAGER', 'WAREHOUSE']}>
+            <InventoryIntroDetailPage />
           </ProtectedRoute>
         }
       />

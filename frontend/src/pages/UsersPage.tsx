@@ -409,7 +409,7 @@ export default function UsersPage() {
                         <span className="text-xs text-primary-400">(Ty)</span>
                       )}
                     </div>
-                    <div className="text-sm text-slate-400">{user.phone}</div>
+                    <div className="text-sm text-slate-400">{user.username}</div>
                   </div>
                   <div className={clsx('flex items-center gap-1 mr-2', role.color)}>
                     {role.icon}

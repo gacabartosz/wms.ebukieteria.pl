@@ -1,6 +1,6 @@
 export interface User {
   id: string;
-  phone: string;
+  username: string;
   name: string;
   role: 'ADMIN' | 'MANAGER' | 'WAREHOUSE';
   permissions?: string[];

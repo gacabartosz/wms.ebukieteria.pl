@@ -3,17 +3,14 @@ import prisma from '../../config/database.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, TokenPayload } from '../../config/jwt.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_TIME_MINUTES } from '../../utils/constants.js';
-import { sanitizePhone } from '../../utils/helpers.js';
 
-export const login = async (phone: string, password: string) => {
-  const sanitizedPhone = sanitizePhone(phone);
-
+export const login = async (username: string, password: string) => {
   const user = await prisma.user.findUnique({
-    where: { phone: sanitizedPhone },
+    where: { username },
   });
 
   if (!user) {
-    throw new AppError('Nieprawidłowy numer telefonu lub hasło', 401);
+    throw new AppError('Nieprawidłowy login lub hasło', 401);
   }
 
   if (!user.isActive) {
@@ -46,7 +43,7 @@ export const login = async (phone: string, password: string) => {
       data: updateData,
     });
 
-    throw new AppError('Nieprawidłowy numer telefonu lub hasło', 401);
+    throw new AppError('Nieprawidłowy login lub hasło', 401);
   }
 
   // Reset failed login attempts on successful login
@@ -72,7 +69,7 @@ export const login = async (phone: string, password: string) => {
 
   const payload: TokenPayload = {
     userId: user.id,
-    phone: user.phone,
+    username: user.username,
     role: user.role,
     permissions: user.permissions,
   };
@@ -85,7 +82,7 @@ export const login = async (phone: string, password: string) => {
     refreshToken,
     user: {
       id: user.id,
-      phone: user.phone,
+      username: user.username,
       name: user.name,
       role: user.role,
       permissions: user.permissions,
@@ -107,7 +104,7 @@ export const refresh = async (refreshToken: string) => {
 
     const newPayload: TokenPayload = {
       userId: user.id,
-      phone: user.phone,
+      username: user.username,
       role: user.role,
       permissions: user.permissions,
     };
@@ -153,7 +150,7 @@ export const getMe = async (userId: string) => {
     where: { id: userId },
     select: {
       id: true,
-      phone: true,
+      username: true,
       name: true,
       role: true,
       permissions: true,

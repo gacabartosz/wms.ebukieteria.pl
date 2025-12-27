@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  phone: z
+  username: z
     .string()
-    .min(9, 'Numer telefonu musi mieć minimum 9 znaków')
-    .max(15, 'Numer telefonu jest za długi')
-    .regex(/^\+?\d+$/, 'Numer telefonu może zawierać tylko cyfry i opcjonalnie + na początku'),
+    .min(1, 'Login jest wymagany')
+    .max(50, 'Login jest za długi'),
   password: z
     .string()
-    .min(6, 'Hasło musi mieć minimum 6 znaków'),
+    .min(1, 'Hasło jest wymagane'),
 });
 
 export const refreshSchema = z.object({
