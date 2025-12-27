@@ -8,6 +8,7 @@ async function main() {
 
   // Create admin user
   const hashedPassword = await bcrypt.hash('Admin123!', 10);
+  const userPassword = await bcrypt.hash('abc123', 10);
 
   const admin = await prisma.user.upsert({
     where: { phone: '+48000000001' },
@@ -47,6 +48,64 @@ async function main() {
   });
   console.log('✅ Warehouse worker created:', worker.phone);
 
+  // Create user1-user5 with password abc123
+  const users = [
+    { phone: 'user1', name: 'Użytkownik 1', role: 'WAREHOUSE' as const },
+    { phone: 'user2', name: 'Użytkownik 2', role: 'WAREHOUSE' as const },
+    { phone: 'user3', name: 'Użytkownik 3', role: 'WAREHOUSE' as const },
+    { phone: 'user4', name: 'Użytkownik 4', role: 'WAREHOUSE' as const },
+    { phone: 'user5', name: 'Użytkownik 5', role: 'WAREHOUSE' as const },
+  ];
+
+  for (const user of users) {
+    await prisma.user.upsert({
+      where: { phone: user.phone },
+      update: { password: userPassword },
+      create: {
+        phone: user.phone,
+        password: userPassword,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  }
+  console.log('✅ Created users: user1, user2, user3, user4, user5 (password: abc123)');
+
+  // Create warehouses - eBukieteria
+  const warehousePLO = await prisma.warehouse.upsert({
+    where: { code: 'PLO' },
+    update: {},
+    create: {
+      code: 'PLO',
+      name: 'Płonica',
+      address: 'Płonica',
+      isDefault: true,
+    },
+  });
+  console.log('✅ Warehouse created:', warehousePLO.code);
+
+  const warehouseWOD = await prisma.warehouse.upsert({
+    where: { code: 'WOD' },
+    update: {},
+    create: {
+      code: 'WOD',
+      name: 'Wodna',
+      address: 'ul. Wodna',
+    },
+  });
+  console.log('✅ Warehouse created:', warehouseWOD.code);
+
+  const warehouseTAR = await prisma.warehouse.upsert({
+    where: { code: 'TAR' },
+    update: {},
+    create: {
+      code: 'TAR',
+      name: 'Targowa',
+      address: 'ul. Targowa',
+    },
+  });
+  console.log('✅ Warehouse created:', warehouseTAR.code);
+
   // Create warehouses
   const warehouse1 = await prisma.warehouse.upsert({
     where: { code: 'PL1' },
@@ -69,6 +128,24 @@ async function main() {
     },
   });
   console.log('✅ Warehouse created:', warehouse2.code);
+
+  // Create locations for PLO warehouse (PLO-01-01-01 to PLO-01-01-05)
+  for (let level = 1; level <= 5; level++) {
+    const barcode = `PLO-01-01-${level.toString().padStart(2, '0')}`;
+    await prisma.location.upsert({
+      where: { barcode },
+      update: {},
+      create: {
+        barcode,
+        warehouseId: warehousePLO.id,
+        zone: 'A',
+        rack: '01',
+        shelf: '01',
+        level: level.toString().padStart(2, '0'),
+      },
+    });
+  }
+  console.log('✅ Created locations: PLO-01-01-01 to PLO-01-01-05');
 
   // Create locations for PL1 warehouse
   const zones = ['A', 'B', 'C'];
@@ -240,6 +317,15 @@ async function main() {
   console.log('   Admin: +48000000001 / Admin123!');
   console.log('   Manager: +48000000002 / Admin123!');
   console.log('   Worker: +48000000003 / Admin123!');
+  console.log('   user1: user1 / abc123');
+  console.log('   user2: user2 / abc123');
+  console.log('   user3: user3 / abc123');
+  console.log('   user4: user4 / abc123');
+  console.log('   user5: user5 / abc123');
+  console.log('\n📦 Warehouses:');
+  console.log('   PLO - Płonica');
+  console.log('   WOD - Wodna');
+  console.log('   TAR - Targowa');
 }
 
 main()

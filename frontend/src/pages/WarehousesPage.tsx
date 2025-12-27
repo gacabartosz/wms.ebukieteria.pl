@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Warehouse, Plus, Check, X } from 'lucide-react';
+import { Warehouse, Plus, Check, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
@@ -42,6 +42,23 @@ export default function WarehousesPage() {
       toast.error(error.response?.data?.error || 'Błąd aktualizacji');
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: warehousesService.deleteWarehouse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      toast.success('Magazyn usunięty');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd usuwania');
+    },
+  });
+
+  const handleDelete = (id: string, code: string) => {
+    if (window.confirm(`Czy na pewno chcesz usunąć magazyn ${code}?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,6 +160,13 @@ export default function WarehousesPage() {
                     title={wh.isActive ? 'Dezaktywuj' : 'Aktywuj'}
                   >
                     {wh.isActive ? <X className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(wh.id, wh.code)}
+                    className="p-2 rounded-lg transition-colors text-red-400 hover:bg-red-500/20"
+                    title="Usuń magazyn"
+                  >
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>

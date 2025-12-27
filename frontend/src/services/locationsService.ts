@@ -36,4 +36,8 @@ export const locationsService = {
   exportToExcel: async (): Promise<void> => {
     await downloadFile('/locations/export', 'lokalizacje.xlsx');
   },
+
+  deleteLocation: async (id: string): Promise<void> => {
+    await api.delete(`/locations/${id}`);
+  },
 };

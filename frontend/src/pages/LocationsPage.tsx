@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
@@ -72,6 +72,23 @@ export default function LocationsPage() {
       toast.success('Status zmieniony');
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: locationsService.deleteLocation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      toast.success('Lokalizacja usunięta');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd usuwania');
+    },
+  });
+
+  const handleDelete = (id: string, barcode: string) => {
+    if (window.confirm(`Czy na pewno chcesz usunąć lokalizację ${barcode}?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,7 +324,9 @@ export default function LocationsPage() {
                   <th className="px-4 py-3 text-center">
                     <div className="text-xs font-medium text-slate-400 uppercase">Status</div>
                   </th>
-                  <th className="px-4 py-3 w-16"></th>
+                  <th className="px-4 py-3 w-24">
+                    <div className="text-xs font-medium text-slate-400 uppercase">Akcje</div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -331,15 +350,25 @@ export default function LocationsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => toggleStatusMutation.mutate({
-                            id: loc.id,
-                            status: loc.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE',
-                          })}
-                          className={clsx('p-1.5 rounded-lg transition-colors', status.color, 'hover:bg-white/10')}
-                        >
-                          {loc.status === 'ACTIVE' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleStatusMutation.mutate({
+                              id: loc.id,
+                              status: loc.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE',
+                            })}
+                            className={clsx('p-1.5 rounded-lg transition-colors', status.color, 'hover:bg-white/10')}
+                            title={loc.status === 'ACTIVE' ? 'Zablokuj' : 'Odblokuj'}
+                          >
+                            {loc.status === 'ACTIVE' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(loc.id, loc.barcode)}
+                            className="p-1.5 rounded-lg transition-colors text-red-400 hover:bg-red-500/20"
+                            title="Usuń lokalizację"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -356,15 +385,23 @@ export default function LocationsPage() {
                 <div key={loc.id} className="glass-card p-3 flex flex-col">
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono font-medium text-white text-sm">{loc.barcode}</span>
-                    <button
-                      onClick={() => toggleStatusMutation.mutate({
-                        id: loc.id,
-                        status: loc.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE',
-                      })}
-                      className={clsx('p-1 rounded', status.color)}
-                    >
-                      {status.icon}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => toggleStatusMutation.mutate({
+                          id: loc.id,
+                          status: loc.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE',
+                        })}
+                        className={clsx('p-1 rounded', status.color)}
+                      >
+                        {status.icon}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(loc.id, loc.barcode)}
+                        className="p-1 rounded text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="text-xs text-slate-500">
                     {loc.warehouse?.code} • Strefa {loc.zone || '-'}

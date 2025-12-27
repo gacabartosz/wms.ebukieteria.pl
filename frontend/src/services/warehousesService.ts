@@ -32,4 +32,8 @@ export const warehousesService = {
     const response = await api.put(`/warehouses/${id}`, data);
     return response.data;
   },
+
+  deleteWarehouse: async (id: string): Promise<void> => {
+    await api.delete(`/warehouses/${id}`);
+  },
 };
