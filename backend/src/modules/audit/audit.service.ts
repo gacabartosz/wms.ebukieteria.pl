@@ -157,6 +157,11 @@ export const getAuditActions = () => {
       { value: 'INV_START', label: 'Rozpoczęcie inwentaryzacji' },
       { value: 'INV_COMPLETE', label: 'Zakończenie inwentaryzacji' },
       { value: 'INV_CANCEL', label: 'Anulowanie inwentaryzacji' },
+      { value: 'INV_LINE', label: 'Zliczenie produktu (inwentaryzacja)' },
+      { value: 'CONTAINER_CREATE', label: 'Utworzenie kuwety' },
+      { value: 'CONTAINER_MOVE', label: 'Przeniesienie kuwety' },
+      { value: 'CONTAINER_UPDATE', label: 'Aktualizacja kuwety' },
+      { value: 'CONTAINER_DELETE', label: 'Usunięcie kuwety' },
       { value: 'USER_LOGIN', label: 'Logowanie' },
       { value: 'USER_LOGOUT', label: 'Wylogowanie' },
       { value: 'USER_CREATE', label: 'Utworzenie użytkownika' },
@@ -165,6 +170,8 @@ export const getAuditActions = () => {
       { value: 'PRODUCT_UPDATE', label: 'Aktualizacja produktu' },
       { value: 'LOCATION_CREATE', label: 'Utworzenie lokalizacji' },
       { value: 'LOCATION_UPDATE', label: 'Aktualizacja lokalizacji' },
+      { value: 'WAREHOUSE_CREATE', label: 'Utworzenie magazynu' },
+      { value: 'WAREHOUSE_UPDATE', label: 'Aktualizacja magazynu' },
     ],
   };
 };

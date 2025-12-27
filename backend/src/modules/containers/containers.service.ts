@@ -277,7 +277,7 @@ export const getContainerContents = async (id: string) => {
   };
 };
 
-export const updateContainer = async (id: string, data: { name?: string }) => {
+export const updateContainer = async (id: string, data: { name?: string }, userId?: string) => {
   const existing = await prisma.container.findUnique({
     where: { id },
   });
@@ -294,10 +294,25 @@ export const updateContainer = async (id: string, data: { name?: string }) => {
     },
   });
 
+  // Audit log
+  if (userId) {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'CONTAINER_UPDATE',
+        metadata: {
+          containerId: container.id,
+          barcode: container.barcode,
+          changes: data,
+        },
+      },
+    });
+  }
+
   return container;
 };
 
-export const deactivateContainer = async (id: string) => {
+export const deactivateContainer = async (id: string, userId?: string) => {
   const container = await prisma.container.findUnique({
     where: { id },
     include: {
@@ -322,6 +337,20 @@ export const deactivateContainer = async (id: string) => {
     where: { id },
     data: { isActive: false },
   });
+
+  // Audit log
+  if (userId) {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'CONTAINER_DELETE',
+        metadata: {
+          containerId: container.id,
+          barcode: container.barcode,
+        },
+      },
+    });
+  }
 
   return { message: 'Kuweta została dezaktywowana' };
 };

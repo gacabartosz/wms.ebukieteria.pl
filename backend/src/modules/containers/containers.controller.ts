@@ -67,7 +67,8 @@ export const getContainerContents = async (req: Request, res: Response, next: Ne
 
 export const updateContainer = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await containersService.updateContainer(req.params.id, req.body);
+    const userId = (req as any).user?.id;
+    const result = await containersService.updateContainer(req.params.id, req.body, userId);
     res.json(result);
   } catch (error) {
     next(error);
@@ -76,7 +77,8 @@ export const updateContainer = async (req: Request, res: Response, next: NextFun
 
 export const deactivateContainer = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await containersService.deactivateContainer(req.params.id);
+    const userId = (req as any).user?.id;
+    const result = await containersService.deactivateContainer(req.params.id, userId);
     res.json(result);
   } catch (error) {
     next(error);

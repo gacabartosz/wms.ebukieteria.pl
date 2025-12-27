@@ -191,6 +191,27 @@ export const addInventoryLine = async (
       include: {
         location: { select: { id: true, barcode: true } },
         product: { select: { id: true, sku: true, name: true, imageUrl: true } },
+        countedBy: { select: { id: true, name: true } },
+      },
+    });
+
+    // Audit log for inventory line update
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'INV_LINE',
+        productId: product.id,
+        fromLocationId: location.id,
+        qty: data.countedQty,
+        metadata: {
+          inventoryId,
+          systemQty,
+          countedQty: data.countedQty,
+          difference: data.countedQty - systemQty,
+          locationBarcode: location.barcode,
+          productSku: product.sku,
+          updated: true,
+        },
       },
     });
 
@@ -214,6 +235,26 @@ export const addInventoryLine = async (
     include: {
       location: { select: { id: true, barcode: true } },
       product: { select: { id: true, sku: true, name: true, imageUrl: true } },
+      countedBy: { select: { id: true, name: true } },
+    },
+  });
+
+  // Audit log for inventory line
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: 'INV_LINE',
+      productId: product.id,
+      fromLocationId: location.id,
+      qty: data.countedQty,
+      metadata: {
+        inventoryId,
+        systemQty,
+        countedQty: data.countedQty,
+        difference: data.countedQty - systemQty,
+        locationBarcode: location.barcode,
+        productSku: product.sku,
+      },
     },
   });
 

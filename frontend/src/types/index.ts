@@ -107,6 +107,19 @@ export interface AuditLog {
   document?: { id: string; number: string; type: string };
   qty?: number;
   reason?: string;
+  metadata?: {
+    barcode?: string;
+    containerId?: string;
+    fromLocation?: string;
+    toLocation?: string;
+    productSku?: string;
+    countedQty?: number;
+    systemQty?: number;
+    difference?: number;
+    bulk?: boolean;
+    count?: number;
+    changes?: Record<string, unknown>;
+  };
   createdAt: string;
 }
 

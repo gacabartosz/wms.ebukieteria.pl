@@ -340,15 +340,78 @@
             return { total, first, last, ...wh };
         };
 
-        // ZPL dla etykiety 56x42mm
-        const generateZPL = (code, line1 = '', line2 = '') => {
+        // ZPL dla etykiety lokalizacji 56x42mm
+        const generateLocationZPL = (code, warehouseName = '') => {
             return `^XA
 ^PW448
 ^LL336
-^FO20,20^BY2,2.5,60^BCN,60,Y,N,N^FD${code}^FS
-^FO20,100^A0N,28,28^FD${line1 || code}^FS
-^FO20,135^A0N,22,22^FD${line2}^FS
+^FO25,20^BY3,3,80^BCN,80,Y,N,N^FD${code}^FS
+^FO25,120^A0N,60,60^FD${code}^FS
+^FO25,190^A0N,30,30^FD${warehouseName}^FS
 ^XZ`;
+        };
+
+        // ZPL dla etykiety kuwety 56x42mm - DUŻY czytelny napis
+        const generateContainerZPL = (containerCode) => {
+            return `^XA
+^PW448
+^LL336
+^FO25,20^BY3,3,80^BCN,80,Y,N,N^FD${containerCode}^FS
+^FO25,130^A0N,70,70^FD${containerCode}^FS
+^XZ`;
+        };
+
+        // Stara funkcja dla kompatybilności
+        const generateZPL = (code, line1 = '', line2 = '') => {
+            if (code.startsWith('K')) {
+                return generateContainerZPL(code);
+            }
+            return generateLocationZPL(code, line2);
+        };
+
+        // Modal z komendą drukowania
+        const showPrintModal = (zplCode, count, rangeText) => {
+            const escapedZpl = zplCode.replace(/\n/g, '\\n').replace(/'/g, "\\'");
+
+            const existingModal = document.getElementById('print-modal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'print-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;">
+                    <div style="background:#1a1a2e;padding:30px;border-radius:15px;max-width:800px;width:100%;color:white;max-height:90vh;overflow-y:auto;">
+                        <h2 style="margin-bottom:10px;color:#38ef7d;">🖨️ Drukowanie ${count} etykiet</h2>
+                        <p style="margin-bottom:20px;color:#667eea;font-size:18px;">${rangeText}</p>
+
+                        <div style="background:#000;padding:20px;border-radius:10px;margin-bottom:20px;">
+                            <p style="color:#888;margin-bottom:10px;font-size:12px;">Otwórz Terminal i wklej:</p>
+                            <code id="print-cmd" style="color:#0f0;font-size:13px;word-break:break-all;display:block;">echo -e '${escapedZpl}' | lp -d Zebra_ZP450</code>
+                        </div>
+
+                        <details style="margin-bottom:20px;">
+                            <summary style="cursor:pointer;color:#667eea;">Pokaż kod ZPL</summary>
+                            <textarea id="zpl-code" readonly style="width:100%;height:150px;background:#000;color:#0f0;padding:10px;font-family:monospace;font-size:10px;border:none;border-radius:5px;margin-top:10px;">${zplCode}</textarea>
+                        </details>
+
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                            <button onclick="navigator.clipboard.writeText(document.getElementById('print-cmd').textContent).then(()=>this.textContent='✅ Skopiowano!')"
+                                style="flex:1;min-width:200px;padding:15px;background:linear-gradient(135deg,#11998e,#38ef7d);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;">
+                                📋 Kopiuj komendę
+                            </button>
+                            <button onclick="navigator.clipboard.writeText(document.getElementById('zpl-code').value).then(()=>this.textContent='✅ ZPL Skopiowany!')"
+                                style="padding:15px 20px;background:#333;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">
+                                📄 Kopiuj ZPL
+                            </button>
+                            <button onclick="document.getElementById('print-modal').remove()"
+                                style="padding:15px 30px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">
+                                ✕ Zamknij
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         };
 
         // ============================================
@@ -451,14 +514,18 @@
             };
 
             const handlePrint = () => {
+                if (generatedCodes.length === 0) {
+                    alert('Najpierw wygeneruj kody!');
+                    return;
+                }
+
                 const zplCommands = generatedCodes.map(code => {
                     const wh = WAREHOUSES.find(w => w.code === code.split('-')[0]);
-                    return generateZPL(code, code, wh ? wh.name : '');
+                    return generateLocationZPL(code, wh ? wh.name : '');
                 }).join('\n');
 
-                // W rzeczywistej aplikacji tutaj byłoby wysłanie do drukarki
-                console.log('ZPL Commands:', zplCommands);
-                alert(`Wysłano ${generatedCodes.length} etykiet do drukarki!\n\nKody ZPL zostały wygenerowane.`);
+                const rangeText = `Lokalizacje: ${generatedCodes[0]} → ${generatedCodes[generatedCodes.length - 1]}`;
+                showPrintModal(zplCommands, generatedCodes.length, rangeText);
             };
 
             const handleExport = () => {
@@ -637,17 +704,21 @@
             };
 
             const handlePrint = () => {
+                if (generatedCodes.length === 0) {
+                    alert('Najpierw wygeneruj kody!');
+                    return;
+                }
+
                 if (showWarning) {
                     if (!confirm('UWAGA: Wybrany zakres pokrywa się z już wydrukowanymi kuwetami! Czy na pewno chcesz kontynuować?')) {
                         return;
                     }
                 }
 
+                // Generuj ZPL - tylko kod kreskowy + DUŻY napis
                 const zplCommands = generatedCodes.map(code =>
-                    generateZPL(code, code, 'KUWETA')
+                    generateContainerZPL(code)
                 ).join('\n');
-
-                console.log('ZPL Commands:', zplCommands);
 
                 // Save to history
                 const newEntry = {
@@ -661,7 +732,10 @@
 
                 onSave(newLastNumber, newHistory);
 
-                alert(`Wydrukowano ${count} kuwet!\nZakres: ${generateContainerCode(startNum)} - ${generateContainerCode(endNum)}`);
+                // Pokaż modal z komendą drukowania
+                const rangeText = `Kuwety: ${generateContainerCode(startNum)} → ${generateContainerCode(endNum)}`;
+                showPrintModal(zplCommands, count, rangeText);
+
                 setGeneratedCodes([]);
             };
 
@@ -886,18 +960,16 @@
                 }
                 allCodes = [...allCodes, ...containerCodes];
 
-                // Generate ZPL
-                const zplCommands = allCodes.map((code, i) => {
+                // Generate ZPL - użyj odpowiednich funkcji dla lokalizacji i kuwet
+                const zplCommands = allCodes.map((code) => {
                     const isContainer = code.startsWith('K');
-                    const wh = !isContainer ? WAREHOUSES.find(w => w.code === code.split('-')[0]) : null;
-                    return generateZPL(
-                        code,
-                        code,
-                        isContainer ? 'KUWETA' : (wh ? wh.name : '')
-                    );
+                    if (isContainer) {
+                        return generateContainerZPL(code);
+                    } else {
+                        const wh = WAREHOUSES.find(w => w.code === code.split('-')[0]);
+                        return generateLocationZPL(code, wh ? wh.name : '');
+                    }
                 }).join('\n');
-
-                console.log('ZPL Commands:', zplCommands);
 
                 // Save container history if containers were printed
                 if (containerCount > 0) {
@@ -912,10 +984,17 @@
                     onSaveContainers(newLastNumber, newHistory);
                 }
 
-                setTimeout(() => {
-                    setIsGenerating(false);
-                    alert(`Wydrukowano ${totalLabels} etykiet!\n\nLokalizacje: ${locationStats.total}\nKuwety: ${containerCount}`);
-                }, 500);
+                setIsGenerating(false);
+
+                // Pokaż modal z komendą drukowania
+                let rangeText = '';
+                if (locationStats.total > 0) {
+                    rangeText += `Lokalizacje: ${locationStats.total} szt.`;
+                }
+                if (containerCount > 0) {
+                    rangeText += (rangeText ? ' | ' : '') + `Kuwety: ${generateContainerCode(containerStart)} → ${generateContainerCode(containerStart + containerCount - 1)}`;
+                }
+                showPrintModal(zplCommands, totalLabels, rangeText);
             };
 
             const handleExportAll = () => {
