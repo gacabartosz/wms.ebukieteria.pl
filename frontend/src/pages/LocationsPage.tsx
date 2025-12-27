@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download, Trash2, Edit2 } from 'lucide-react';
+import { MapPin, Plus, Filter, Lock, Unlock, AlertTriangle, Upload, ChevronUp, ChevronDown, Download, Trash2, Edit2, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
@@ -37,6 +37,27 @@ export default function LocationsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [editData, setEditData] = useState({ zone: '' });
+  const [printModalData, setPrintModalData] = useState<{ barcode: string; zpl: string } | null>(null);
+
+  // Generate ZPL for location label
+  const generateLocationZPL = (barcode: string) => {
+    return `^XA
+^PW448
+^LL336
+^FO25,20^BY3,3,80^BCN,80,Y,N,N^FD${barcode}^FS
+^FO25,130^A0N,70,70^FD${barcode}^FS
+^XZ`;
+  };
+
+  const handlePrint = (barcode: string) => {
+    const zpl = generateLocationZPL(barcode);
+    setPrintModalData({ barcode, zpl });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Skopiowano do schowka');
+  };
 
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
@@ -231,6 +252,44 @@ export default function LocationsPage() {
         </div>
       }
     >
+      {/* Print Modal */}
+      {printModalData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-6 w-full max-w-lg animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-4">
+              Drukowanie etykiety: <span className="text-primary-400">{printModalData.barcode}</span>
+            </h3>
+            <p className="text-slate-400 text-sm mb-3">
+              Użyj poniższej komendy w terminalu, aby wydrukować etykietę na drukarce Zebra:
+            </p>
+            <div className="bg-slate-900 rounded-lg p-3 font-mono text-sm mb-3 overflow-x-auto">
+              <code className="text-green-400">
+                echo '{printModalData.zpl.replace(/\n/g, '')}' | lp -d zebra
+              </code>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => copyToClipboard(`echo '${printModalData.zpl.replace(/\n/g, '')}' | lp -d zebra`)}
+                className="flex-1"
+              >
+                Kopiuj komendę
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => copyToClipboard(printModalData.zpl)}
+                className="flex-1"
+              >
+                Kopiuj ZPL
+              </Button>
+              <Button onClick={() => setPrintModalData(null)} className="flex-1">
+                Zamknij
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {editingLocation && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -417,6 +476,13 @@ export default function LocationsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => handlePrint(loc.barcode)}
+                            className="p-1.5 rounded-lg transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-500/20"
+                            title="Drukuj etykietę"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(loc)}
                             className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-white/10"
                             title="Edytuj lokalizację"
@@ -458,6 +524,13 @@ export default function LocationsPage() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono font-medium text-white text-sm">{loc.barcode}</span>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handlePrint(loc.barcode)}
+                        className="p-1 rounded text-blue-400"
+                        title="Drukuj"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleEdit(loc)}
                         className="p-1 rounded text-slate-400"

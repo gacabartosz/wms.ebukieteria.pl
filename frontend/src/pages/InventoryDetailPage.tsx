@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Package, Check, Box } from 'lucide-react';
+import { MapPin, Package, Check, Box, Minus, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
 import { inventoryService } from '../services/inventoryService';
 import { containersService } from '../services/containersService';
+import { productsService } from '../services/productsService';
 import { playBeep, playLocationBeep } from '../utils/sounds';
 import clsx from 'clsx';
 
@@ -17,6 +18,13 @@ interface ScannedProduct {
   sku: string;
   name: string;
   qty: number;
+}
+
+interface PendingProduct {
+  code: string;
+  sku: string;
+  name: string;
+  productId: string;
 }
 
 export default function InventoryDetailPage() {
@@ -36,11 +44,63 @@ export default function InventoryDetailPage() {
   const lastInputTimeRef = useRef<number>(0);
   const inputLengthBeforeRef = useRef<number>(0);
 
+  // Pending product states - product waits for quantity input before saving
+  const [pendingProduct, setPendingProduct] = useState<PendingProduct | null>(null);
+  const [pendingQty, setPendingQty] = useState<number>(1);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+
   // Helper to clear input and reset scanner detection
   const clearInput = useCallback(() => {
-    clearInput();
+    setInputValue('');
     inputLengthBeforeRef.current = 0;
     lastInputTimeRef.current = 0;
+  }, []);
+
+  // Save pending product to backend
+  const savePendingProduct = useCallback(async () => {
+    if (!pendingProduct || !currentLocation) return;
+
+    try {
+      await addLineMutation.mutateAsync({
+        locationBarcode: currentLocation.barcode,
+        productCode: pendingProduct.code,
+        countedQty: pendingQty,
+      });
+
+      // Add to scanned list
+      setScannedProducts(prev => [
+        ...prev,
+        {
+          code: pendingProduct.code,
+          sku: pendingProduct.sku,
+          name: pendingProduct.name,
+          qty: pendingQty,
+        },
+      ]);
+
+      // Clear pending state
+      setPendingProduct(null);
+      setPendingQty(1);
+      playBeep('success');
+    } catch {
+      playBeep('error');
+      // Error handled in mutation
+    }
+  }, [pendingProduct, currentLocation, pendingQty]);
+
+  // Handle Enter key on quantity input
+  const handleQtyKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      savePendingProduct();
+      // Focus back to scanner input
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [savePendingProduct]);
+
+  // Handle quantity change
+  const handleQtyChange = useCallback((value: number) => {
+    setPendingQty(Math.max(1, value));
   }, []);
 
   const { data: inventory, isLoading } = useQuery({
@@ -155,61 +215,47 @@ export default function InventoryDetailPage() {
     }
   };
 
-  // Handle product scan
+  // Handle product scan - NEW FLOW: product waits as pending until qty entered or next scan
   const handleProductScan = async (code: string) => {
     if (!currentLocation) return;
 
     // Check if this is a container barcode (starts with K followed by digits)
     if (/^K\d+$/i.test(code)) {
+      // Save pending product first if exists
+      if (pendingProduct) {
+        await savePendingProduct();
+      }
       await handleContainerScan(code);
       return;
     }
 
-    // Check if product already scanned
-    const existingIndex = scannedProducts.findIndex(
-      (p) => p.code.toLowerCase() === code.toLowerCase()
-    );
+    // If there's a pending product, save it first with current qty
+    if (pendingProduct) {
+      await savePendingProduct();
+    }
 
-    if (existingIndex >= 0) {
-      // Increment quantity
-      const updated = [...scannedProducts];
-      updated[existingIndex].qty += 1;
-      setScannedProducts(updated);
+    // Get product info without saving (just validation)
+    try {
+      const productInfo = await productsService.getProductByCode(code);
 
-      // Save to backend
-      await addLineMutation.mutateAsync({
-        locationBarcode: currentLocation.barcode,
-        productCode: code,
-        countedQty: updated[existingIndex].qty,
+      // Set as new pending product
+      setPendingProduct({
+        code: code,
+        sku: productInfo.sku,
+        name: productInfo.name,
+        productId: productInfo.id,
       });
+      setPendingQty(1);
+
+      // Focus on quantity input
+      setTimeout(() => qtyInputRef.current?.focus(), 100);
 
       playBeep('success');
       clearInput();
-    } else {
-      // New product - save with qty 1
-      try {
-        const result = await addLineMutation.mutateAsync({
-          locationBarcode: currentLocation.barcode,
-          productCode: code,
-          countedQty: 1,
-        });
-
-        setScannedProducts([
-          ...scannedProducts,
-          {
-            code,
-            sku: result.product?.sku || code,
-            name: result.product?.name || '',
-            qty: 1,
-          },
-        ]);
-
-        playBeep('success');
-        clearInput();
-      } catch {
-        // Error handled in mutation
-        clearInput();
-      }
+    } catch (error: any) {
+      playBeep('error');
+      toast.error(error.response?.data?.error || 'Produkt nie znaleziony');
+      clearInput();
     }
   };
 
@@ -282,7 +328,12 @@ export default function InventoryDetailPage() {
   };
 
   // Finish current location
-  const handleFinishLocation = () => {
+  const handleFinishLocation = async () => {
+    // Save pending product first if exists
+    if (pendingProduct) {
+      await savePendingProduct();
+    }
+
     if (currentLocation) {
       const label = currentContainer
         ? `Kuweta ${currentContainer.barcode}`
@@ -294,13 +345,20 @@ export default function InventoryDetailPage() {
     setCurrentLocation(null);
     setCurrentContainer(null);
     setScannedProducts([]);
+    setPendingProduct(null);
+    setPendingQty(1);
     setStep('scan-location');
     clearInput();
   };
 
   // Finish entire inventory
-  const handleFinishInventory = () => {
-    if (completedLocations.length === 0 && scannedProducts.length === 0) {
+  const handleFinishInventory = async () => {
+    // Save pending product first if exists
+    if (pendingProduct) {
+      await savePendingProduct();
+    }
+
+    if (completedLocations.length === 0 && scannedProducts.length === 0 && !pendingProduct) {
       toast.error('Brak zeskanowanych pozycji');
       return;
     }
@@ -470,16 +528,71 @@ export default function InventoryDetailPage() {
             </Button>
           </div>
 
-          {scannedProducts.length === 0 ? (
+          {/* PENDING PRODUCT - waiting for quantity input */}
+          {pendingProduct && (
+            <div className="glass-card p-4 mb-4 ring-2 ring-yellow-500/50 animate-fade-in">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-yellow-500/20">
+                  <Package className="w-6 h-6 text-yellow-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-mono font-bold text-white text-lg">{pendingProduct.sku}</div>
+                  <div className="text-sm text-slate-400">{pendingProduct.name}</div>
+                  <div className="text-xs text-slate-500">EAN: {pendingProduct.code}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 text-sm">Ilość:</span>
+                <div className="flex items-center gap-2 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => handleQtyChange(pendingQty - 1)}
+                    className="p-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <input
+                    ref={qtyInputRef}
+                    type="number"
+                    value={pendingQty}
+                    onChange={(e) => handleQtyChange(parseInt(e.target.value) || 1)}
+                    onKeyDown={handleQtyKeyDown}
+                    className="flex-1 px-4 py-3 rounded-lg bg-white/10 border-2 border-yellow-500/50 text-white text-center text-2xl font-bold focus:outline-none focus:border-yellow-500"
+                    min={1}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQtyChange(pendingQty + 1)}
+                    className="p-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <Button
+                  onClick={savePendingProduct}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                >
+                  OK
+                </Button>
+              </div>
+
+              <div className="mt-2 text-xs text-yellow-400/70 text-center">
+                Wpisz ilość i naciśnij Enter, lub skanuj następny produkt
+              </div>
+            </div>
+          )}
+
+          {scannedProducts.length === 0 && !pendingProduct ? (
             <div className="glass-card p-6 text-center">
               <Package className="w-10 h-10 text-slate-500 mx-auto mb-2" />
               <p className="text-slate-400">Zeskanuj pierwszy produkt</p>
             </div>
-          ) : (
+          ) : scannedProducts.length > 0 ? (
             <div className="space-y-2">
               {scannedProducts.map((product, index) => (
                 <div
-                  key={product.code}
+                  key={`${product.code}-${index}`}
                   className="glass-card p-3 flex items-center gap-3 animate-fade-in"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -496,7 +609,7 @@ export default function InventoryDetailPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

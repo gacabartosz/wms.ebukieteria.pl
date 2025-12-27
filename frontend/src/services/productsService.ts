@@ -24,6 +24,11 @@ export const productsService = {
     return response.data;
   },
 
+  getProductByCode: async (code: string): Promise<Product> => {
+    const response = await api.get(`/products/by-code/${code}`);
+    return response.data;
+  },
+
   createProduct: async (data: {
     sku: string;
     name: string;

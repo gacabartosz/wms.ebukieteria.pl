@@ -102,8 +102,6 @@ export interface AuditLog {
   action: string;
   user: { id: string; name: string };
   product?: { id: string; sku: string; name: string };
-  fromLocation?: { id: string; barcode: string };
-  toLocation?: { id: string; barcode: string };
   document?: { id: string; number: string; type: string };
   qty?: number;
   reason?: string;

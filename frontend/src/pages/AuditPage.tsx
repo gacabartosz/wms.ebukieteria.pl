@@ -155,14 +155,6 @@ export default function AuditPage() {
                   </div>
                 )}
 
-                {(log.fromLocation || log.toLocation) && (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <MapPin className="w-3 h-3" />
-                    {log.fromLocation && <span>{log.fromLocation.barcode}</span>}
-                    {log.fromLocation && log.toLocation && <span>→</span>}
-                    {log.toLocation && <span>{log.toLocation.barcode}</span>}
-                  </div>
-                )}
 
                 {log.document && (
                   <div className="flex items-center gap-2 text-slate-400">

@@ -1,7 +1,7 @@
 // Sound themes for scanner feedback
 
 export type SoundTheme = 'classic' | 'material' | 'ios' | 'retro' | 'minimal' | 'none';
-export type SoundType = 'success' | 'error' | 'warning' | 'location';
+export type SoundType = 'success' | 'error' | 'warning' | 'location' | 'container';
 
 interface SoundConfig {
   frequency: number;
@@ -31,6 +31,10 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
         { frequency: 1000, type: 'sine', duration: 0.08, gain: 0.3 },
         { frequency: 1400, type: 'sine', duration: 0.08, gain: 0.3 },
       ],
+      container: [
+        { frequency: 880, type: 'sine', duration: 0.1, gain: 0.3 },
+        { frequency: 1100, type: 'sine', duration: 0.15, gain: 0.3 },
+      ],
     },
   },
 
@@ -45,6 +49,10 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
         { frequency: 523, type: 'sine', duration: 0.1, gain: 0.25 },
         { frequency: 784, type: 'sine', duration: 0.15, gain: 0.25 },
       ],
+      container: [
+        { frequency: 659, type: 'sine', duration: 0.1, gain: 0.25 },
+        { frequency: 988, type: 'sine', duration: 0.15, gain: 0.25 },
+      ],
     },
   },
 
@@ -58,6 +66,10 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       location: [
         { frequency: 1319, type: 'sine', duration: 0.06, gain: 0.2 },
         { frequency: 1568, type: 'sine', duration: 0.1, gain: 0.2 },
+      ],
+      container: [
+        { frequency: 1047, type: 'sine', duration: 0.08, gain: 0.2 },
+        { frequency: 1397, type: 'sine', duration: 0.12, gain: 0.2 },
       ],
     },
   },
@@ -74,6 +86,11 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
         { frequency: 698, type: 'square', duration: 0.08, gain: 0.12 },
         { frequency: 880, type: 'square', duration: 0.1, gain: 0.12 },
       ],
+      container: [
+        { frequency: 440, type: 'square', duration: 0.08, gain: 0.12 },
+        { frequency: 587, type: 'square', duration: 0.08, gain: 0.12 },
+        { frequency: 740, type: 'square', duration: 0.1, gain: 0.12 },
+      ],
     },
   },
 
@@ -88,6 +105,10 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
         { frequency: 1200, type: 'sine', duration: 0.04, gain: 0.12 },
         { frequency: 1500, type: 'sine', duration: 0.06, gain: 0.12 },
       ],
+      container: [
+        { frequency: 1000, type: 'sine', duration: 0.05, gain: 0.12 },
+        { frequency: 1300, type: 'sine', duration: 0.08, gain: 0.12 },
+      ],
     },
   },
 
@@ -99,6 +120,7 @@ export const soundThemes: Record<SoundTheme, ThemeConfig> = {
       error: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       warning: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
       location: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
+      container: { frequency: 0, type: 'sine', duration: 0, gain: 0 },
     },
   },
 };
@@ -179,6 +201,7 @@ const playSound = (type: SoundType) => {
         error: [100, 50, 100],
         warning: [50, 30, 50],
         location: [30, 20, 30],
+        container: [40, 20, 40],
       };
       navigator.vibrate(patterns[type]);
     }
@@ -208,6 +231,7 @@ const playSound = (type: SoundType) => {
         error: [50, 30, 50],
         warning: 40,
         location: [20, 15, 20],
+        container: [25, 15, 25],
       };
       navigator.vibrate(vibrationDurations[type]);
     }
@@ -226,6 +250,10 @@ export const playBeep = (type: 'success' | 'error' | 'warning' = 'success') => {
 
 export const playLocationBeep = () => {
   playSound('location');
+};
+
+export const playContainerBeep = () => {
+  playSound('container');
 };
 
 // Preview a specific theme's sound

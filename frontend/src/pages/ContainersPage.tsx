@@ -6,34 +6,11 @@ import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { containersService } from '../services/containersService';
+import { playContainerBeep } from '../utils/sounds';
 import type { Container } from '../types';
 
 type SortField = 'barcode' | 'location' | 'stockCount';
 type SortDir = 'asc' | 'desc';
-
-// Funkcja do odtwarzania dźwięku kuwety
-const playContainerSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
-    oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1); // C#6
-
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.3);
-  } catch (e) {
-    console.log('Audio not supported');
-  }
-};
 
 export default function ContainersPage() {
   const queryClient = useQueryClient();
@@ -71,7 +48,7 @@ export default function ContainersPage() {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowForm(false);
       setNewContainer({ barcode: '', name: '', locationBarcode: '' });
-      playContainerSound();
+      playContainerBeep();
       toast.success('Kuweta utworzona');
     },
     onError: (error: any) => {
@@ -84,7 +61,7 @@ export default function ContainersPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowForm(false);
-      playContainerSound();
+      playContainerBeep();
       toast.success(`Utworzono ${result.length} kuwet`);
     },
     onError: (error: any) => {
@@ -99,7 +76,7 @@ export default function ContainersPage() {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setShowMoveModal(null);
       setMoveLocation('');
-      playContainerSound();
+      playContainerBeep();
       toast.success('Kuweta przeniesiona');
     },
     onError: (error: any) => {
@@ -113,7 +90,7 @@ export default function ContainersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       setEditingContainer(null);
-      playContainerSound();
+      playContainerBeep();
       toast.success('Kuweta zaktualizowana');
     },
     onError: (error: any) => {
@@ -135,7 +112,7 @@ export default function ContainersPage() {
   const handleEdit = (container: Container) => {
     setEditingContainer(container);
     setEditData({ name: container.name || '' });
-    playContainerSound();
+    playContainerBeep();
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -453,7 +430,7 @@ export default function ContainersPage() {
                       <button
                         onClick={() => {
                           setShowContentsModal(container.id);
-                          playContainerSound();
+                          playContainerBeep();
                         }}
                         className="inline-flex items-center gap-1 text-slate-300 hover:text-white"
                       >
@@ -501,7 +478,7 @@ export default function ContainersPage() {
                   <button
                     onClick={() => {
                       setShowContentsModal(container.id);
-                      playContainerSound();
+                      playContainerBeep();
                     }}
                     className="flex items-center gap-1 text-slate-300"
                   >

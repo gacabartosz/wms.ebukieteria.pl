@@ -44,8 +44,6 @@ export const getAuditLogs = async (params: {
       include: {
         user: { select: { id: true, name: true } },
         product: { select: { id: true, sku: true, name: true } },
-        fromLocation: { select: { id: true, barcode: true } },
-        toLocation: { select: { id: true, barcode: true } },
         document: { select: { id: true, number: true, type: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -76,8 +74,6 @@ export const getProductHistory = async (productId: string, params: {
       take,
       include: {
         user: { select: { id: true, name: true } },
-        fromLocation: { select: { id: true, barcode: true } },
-        toLocation: { select: { id: true, barcode: true } },
         document: { select: { id: true, number: true, type: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -114,8 +110,6 @@ export const getLocationHistory = async (locationId: string, params: {
       include: {
         user: { select: { id: true, name: true } },
         product: { select: { id: true, sku: true, name: true } },
-        fromLocation: { select: { id: true, barcode: true } },
-        toLocation: { select: { id: true, barcode: true } },
         document: { select: { id: true, number: true, type: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -135,8 +129,6 @@ export const getDocumentHistory = async (documentId: string) => {
     include: {
       user: { select: { id: true, name: true } },
       product: { select: { id: true, sku: true, name: true } },
-      fromLocation: { select: { id: true, barcode: true } },
-      toLocation: { select: { id: true, barcode: true } },
     },
     orderBy: { createdAt: 'asc' },
   });
