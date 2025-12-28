@@ -29,6 +29,30 @@ function generateTempName(lineIndex: number): string {
   return `Produkt-${String(lineIndex).padStart(4, '0')}`;
 }
 
+// Mapowanie nazwy kategorii na stawkę VAT
+function getVatRateFromName(name: string): number {
+  const nameNormalized = name.toLowerCase().trim();
+
+  // VAT 8%
+  const vat8Categories = [
+    'kwiat cięty', 'kwiat ciety',
+    'kwiat doniczkowy',
+    'nawozy 8%', 'nawozy 8',
+    'ziemia',
+  ];
+
+  for (const cat of vat8Categories) {
+    if (nameNormalized.includes(cat) || cat.includes(nameNormalized)) {
+      return 8;
+    }
+  }
+
+  // VAT 23% (domyślnie)
+  // Artykuł dekoracyjny, Szkło, Ceramika, Kwiat sztuczny, Znicz,
+  // Wkłady do zniczy, Świece, Nawozy 23%, Doniczka plastikowa, Wiklina
+  return 23;
+}
+
 // ============================================
 // SERVICE
 // ============================================
@@ -87,6 +111,7 @@ export const inventoryIntroService = {
           orderBy: { createdAt: 'desc' },
           include: {
             createdBy: { select: { id: true, name: true } },
+            updatedBy: { select: { id: true, name: true } },
           },
         },
       },
@@ -135,6 +160,9 @@ export const inventoryIntroService = {
     const tempSku = `TEMP-${Date.now()}-${lineIndex}`; // Tymczasowy, zostanie nadpisany przy zakończeniu
     const tempName = data.name?.trim() || generateTempName(lineIndex);
 
+    // Auto-ustaw VAT na podstawie nazwy
+    const vatRate = getVatRateFromName(tempName);
+
     // Utwórz linię z informacją kto dodał
     return prisma.inventoryIntroLine.create({
       data: {
@@ -146,6 +174,7 @@ export const inventoryIntroService = {
         ean: data.ean || null,
         tempSku,
         tempName,
+        vatRate,
         createdById: userId,
       },
       include: {
@@ -154,7 +183,7 @@ export const inventoryIntroService = {
     });
   },
 
-  // UPDATE LINE - Edytuj pozycję (ilość, cenę, nazwę, ean)
+  // UPDATE LINE - Edytuj pozycję (ilość, cenę, nazwę, ean, vatRate)
   async updateLine(
     introId: string,
     lineId: string,
@@ -163,6 +192,7 @@ export const inventoryIntroService = {
       priceBrutto?: number;
       name?: string;
       ean?: string;
+      vatRate?: number;
     },
     userId?: string
   ) {
@@ -201,6 +231,14 @@ export const inventoryIntroService = {
       const newName = data.name.trim() || undefined;
       if (existingLine && existingLine.tempName !== newName) {
         changes.push(`nazwa: "${existingLine.tempName}" → "${newName || ''}"`);
+        // Auto-aktualizuj VAT na podstawie nowej nazwy
+        if (newName) {
+          const newVatRate = getVatRateFromName(newName);
+          if (existingLine.vatRate !== newVatRate) {
+            changes.push(`VAT: ${existingLine.vatRate}% → ${newVatRate}%`);
+            updateData.vatRate = newVatRate;
+          }
+        }
       }
       updateData.tempName = newName;
     }
@@ -211,11 +249,24 @@ export const inventoryIntroService = {
       }
       updateData.ean = newEan;
     }
+    // Manualna zmiana VAT (ADMIN panel)
+    if (data.vatRate !== undefined && (data.vatRate === 8 || data.vatRate === 23)) {
+      if (existingLine && existingLine.vatRate !== data.vatRate) {
+        changes.push(`VAT: ${existingLine.vatRate}% → ${data.vatRate}%`);
+        updateData.vatRate = data.vatRate;
+      }
+    }
 
     // Loguj zmiany
     if (changes.length > 0) {
       const userName = userId ? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name : 'Unknown';
       console.log(`[INVENTORY-INTRO] Edycja produktu ${lineId} przez ${userName}: ${changes.join(', ')}`);
+
+      // Zapisz kto i kiedy edytował
+      updateData.updatedAt = new Date();
+      if (userId) {
+        updateData.updatedById = userId;
+      }
     }
 
     return prisma.inventoryIntroLine.update({
@@ -223,6 +274,7 @@ export const inventoryIntroService = {
       data: updateData,
       include: {
         createdBy: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, name: true } },
       },
     });
   },
@@ -525,8 +577,69 @@ export const inventoryIntroService = {
     return user.assignedWarehouses.map(uw => uw.warehouse);
   },
 
+  // GET USER LOCATIONS - Pobierz lokalizacje dostępne dla użytkownika (z jego magazynów)
+  async getUserLocations(userId: string, warehouseId?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        assignedWarehouses: {
+          include: {
+            warehouse: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new Error('Użytkownik nie znaleziony');
+    }
+
+    let warehouseIds: string[] = [];
+
+    // ADMIN widzi wszystkie magazyny
+    if (user.role === 'ADMIN') {
+      if (warehouseId) {
+        warehouseIds = [warehouseId];
+      } else {
+        const warehouses = await prisma.warehouse.findMany({
+          where: { isActive: true },
+          select: { id: true },
+        });
+        warehouseIds = warehouses.map(w => w.id);
+      }
+    } else {
+      // Inni użytkownicy widzą tylko lokalizacje z przypisanych magazynów
+      if (warehouseId) {
+        // Sprawdź czy użytkownik ma dostęp do tego magazynu
+        const hasAccess = user.assignedWarehouses.some(uw => uw.warehouseId === warehouseId);
+        if (!hasAccess) {
+          return [];
+        }
+        warehouseIds = [warehouseId];
+      } else {
+        warehouseIds = user.assignedWarehouses.map(uw => uw.warehouseId);
+      }
+    }
+
+    if (warehouseIds.length === 0) {
+      return [];
+    }
+
+    return prisma.location.findMany({
+      where: {
+        warehouseId: { in: warehouseIds },
+        isActive: true,
+        status: 'ACTIVE',
+      },
+      include: {
+        warehouse: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { barcode: 'asc' },
+    });
+  },
+
   // EXPORT - Eksportuj wybrane inwentaryzacje do XLS/CSV (także w trakcie)
-  async exportToExcel(inventoryIds: string[], vatRate: number = 23) {
+  async exportToExcel(inventoryIds: string[], vatRate: number = 23, divider: number = 2) {
     // Pobierz wszystkie wybrane inwentaryzacje z liniami (COMPLETED lub IN_PROGRESS)
     const inventories = await prisma.inventoryIntro.findMany({
       where: {
@@ -626,10 +739,8 @@ export const inventoryIntroService = {
     for (const inventory of inventories) {
       for (const line of inventory.lines) {
         const priceBrutto = Number(line.priceBrutto);
-        // CENA NETTO zakupu = (brutto / (1 + VAT%)) / 2
-        // Zakładamy że cena brutto zawiera VAT, a cena zakupu netto to połowa ceny netto sprzedaży
-        const priceNetto = priceBrutto / (1 + vatRate / 100);
-        const priceNettoZakupu = priceNetto / 2;
+        // CENA NETTO zakupu = brutto / (1 + VAT%) / podzielnik
+        const priceNettoZakupu = priceBrutto / (1 + vatRate / 100) / divider;
 
         const row = worksheet.getRow(rowIndex);
         row.getCell(1).value = lp;
@@ -676,7 +787,7 @@ export const inventoryIntroService = {
       sum + inv.lines.reduce((s, l) => s + Number(l.priceBrutto) * l.quantity, 0), 0);
     const totalNettoZakupu = inventories.reduce((sum, inv) =>
       sum + inv.lines.reduce((s, l) => {
-        const netto = Number(l.priceBrutto) / (1 + vatRate / 100) / 2;
+        const netto = Number(l.priceBrutto) / (1 + vatRate / 100) / divider;
         return s + netto * l.quantity;
       }, 0), 0);
 
@@ -691,7 +802,7 @@ export const inventoryIntroService = {
   },
 
   // EXPORT CSV
-  async exportToCSV(inventoryIds: string[], vatRate: number = 23) {
+  async exportToCSV(inventoryIds: string[], vatRate: number = 23, divider: number = 2) {
     const inventories = await prisma.inventoryIntro.findMany({
       where: {
         id: { in: inventoryIds },
@@ -714,7 +825,7 @@ export const inventoryIntroService = {
     for (const inventory of inventories) {
       for (const line of inventory.lines) {
         const priceBrutto = Number(line.priceBrutto);
-        const priceNettoZakupu = (priceBrutto / (1 + vatRate / 100)) / 2;
+        const priceNettoZakupu = priceBrutto / (1 + vatRate / 100) / divider;
 
         rows.push([
           lp.toString(),
@@ -733,7 +844,7 @@ export const inventoryIntroService = {
   },
 
   // EXPORT PDF ze zdjęciami
-  async exportToPDF(inventoryIds: string[], vatRate: number = 23): Promise<PDFKit.PDFDocument> {
+  async exportToPDF(inventoryIds: string[], vatRate: number = 23, divider: number = 2): Promise<PDFKit.PDFDocument> {
     const inventories = await prisma.inventoryIntro.findMany({
       where: {
         id: { in: inventoryIds },
@@ -783,8 +894,7 @@ export const inventoryIntroService = {
 
       for (const line of inventory.lines) {
         const priceBrutto = Number(line.priceBrutto);
-        const priceNetto = priceBrutto / (1 + vatRate / 100);
-        const priceNettoZakupu = priceNetto / 2;
+        const priceNettoZakupu = priceBrutto / (1 + vatRate / 100) / divider;
 
         totalBrutto += priceBrutto * line.quantity;
         totalNettoZakupu += priceNettoZakupu * line.quantity;

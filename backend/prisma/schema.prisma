@@ -114,6 +114,7 @@ model User {
   countedInventoryLines  InventoryLine[]  @relation("InventoryLineCounted")
   createdInventoryIntros InventoryIntro[] @relation("InventoryIntroCreatedBy")
   createdInventoryIntroLines InventoryIntroLine[] @relation("InventoryIntroLineCreatedBy")
+  updatedInventoryIntroLines InventoryIntroLine[] @relation("InventoryIntroLineUpdatedBy")
 
   // Przypisane magazyny (Admin może przypisać użytkownika do magazynów)
   assignedWarehouses     UserWarehouse[]
@@ -447,6 +448,7 @@ model InventoryIntroLine {
   quantity         Int            @default(1)
   unit             String         @default("szt") // szt, kg, opak
   ean              String?        // opcjonalne
+  vatRate          Int            @default(23) // Stawka VAT: 8 lub 23
 
   // Auto-generowane
   tempSku          String         // INV-20251227-0001
@@ -457,8 +459,14 @@ model InventoryIntroLine {
   createdBy        User?          @relation("InventoryIntroLineCreatedBy", fields: [createdById], references: [id])
   createdAt        DateTime       @default(now())
 
+  // Kto edytował i kiedy
+  updatedById      String?
+  updatedBy        User?          @relation("InventoryIntroLineUpdatedBy", fields: [updatedById], references: [id])
+  updatedAt        DateTime?
+
   @@index([inventoryIntroId])
   @@index([createdById])
+  @@index([updatedById])
 }
 
 // ============================================

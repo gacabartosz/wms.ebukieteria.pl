@@ -15,6 +15,10 @@ import {
   X,
   FileSpreadsheet,
   FileText,
+  Settings,
+  Calculator,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 // Lokalny słownik nazw produktów - NIE OBCIĄŻA SYSTEMU (statyczna lista)
@@ -61,6 +65,11 @@ export default function InventoryIntroDetailPage() {
 
   // Export state
   const [exporting, setExporting] = useState(false);
+
+  // ADMIN: Panel ustawień eksportu (VAT i podzielnik)
+  const [exportVatRate, setExportVatRate] = useState<number>(23);
+  const [exportDivider, setExportDivider] = useState<number>(2);
+  const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
 
   // Form state
   const [imageUrl, setImageUrl] = useState<string>('');
@@ -193,13 +202,30 @@ export default function InventoryIntroDetailPage() {
     },
   });
 
+  // Oblicz wartość netto dla podglądu (ADMIN)
+  const calculateNettoPreview = useMemo(() => {
+    if (!inventory?.lines) return { totalBrutto: 0, totalNetto: 0 };
+
+    let totalBrutto = 0;
+    let totalNetto = 0;
+
+    inventory.lines.forEach((line: InventoryIntroLine) => {
+      const brutto = Number(line.priceBrutto) * line.quantity;
+      const netto = brutto / (1 + exportVatRate / 100) / exportDivider;
+      totalBrutto += brutto;
+      totalNetto += netto;
+    });
+
+    return { totalBrutto, totalNetto };
+  }, [inventory?.lines, exportVatRate, exportDivider]);
+
   // Export to Excel
   const handleExportExcel = async () => {
     if (!id) return;
     setExporting(true);
     try {
       const response = await api.post('/inventory-intro/export/excel',
-        { inventoryIds: [id], vatRate: 23 },
+        { inventoryIds: [id], vatRate: exportVatRate, divider: exportDivider },
         { responseType: 'blob' }
       );
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -224,7 +250,7 @@ export default function InventoryIntroDetailPage() {
     setExporting(true);
     try {
       const response = await api.post('/inventory-intro/export/pdf',
-        { inventoryIds: [id], vatRate: 23 },
+        { inventoryIds: [id], vatRate: exportVatRate, divider: exportDivider },
         { responseType: 'blob' }
       );
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
@@ -243,14 +269,20 @@ export default function InventoryIntroDetailPage() {
     }
   };
 
+  // ADMIN: Zmiana VAT produktu
+  const handleVatChange = (lineId: string, vatRate: number) => {
+    updateLineMutation.mutate({ lineId, vatRate });
+  };
+
   // Update line mutation
   const updateLineMutation = useMutation({
-    mutationFn: (data: { lineId: string; quantity?: number; priceBrutto?: number; name?: string; ean?: string }) =>
+    mutationFn: (data: { lineId: string; quantity?: number; priceBrutto?: number; name?: string; ean?: string; vatRate?: number }) =>
       inventoryIntroService.updateLine(id!, data.lineId, {
         quantity: data.quantity,
         priceBrutto: data.priceBrutto,
         name: data.name,
         ean: data.ean,
+        vatRate: data.vatRate,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-intro', id] });
@@ -474,6 +506,204 @@ export default function InventoryIntroDetailPage() {
         </div>
       </div>
 
+      {/* ADMIN ONLY: Panel ustawień eksportu */}
+      {isAdmin && inventory.lines.length > 0 && (
+        <div className="glass-card mb-4 border border-amber-500/30 bg-amber-500/5">
+          {/* Header - zawsze widoczny */}
+          <button
+            type="button"
+            onClick={() => setShowAdminPanel(!showAdminPanel)}
+            className="w-full p-3 flex items-center justify-between text-left hover:bg-white/5 transition-colors rounded-t-xl"
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-amber-400" />
+              <span className="font-medium text-amber-400">Panel ADMIN - Ustawienia eksportu</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-400">
+                VAT: {exportVatRate}% | Podzielnik: {exportDivider}
+              </span>
+              {showAdminPanel ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {/* Panel rozwijany */}
+          {showAdminPanel && (
+            <div className="p-4 border-t border-amber-500/20 space-y-4">
+              {/* Stawka VAT */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Stawka VAT do przeliczenia
+                </label>
+                <div className="flex gap-2">
+                  {[8, 23].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setExportVatRate(rate)}
+                      className={clsx(
+                        'px-4 py-2 rounded-lg font-medium transition-all',
+                        exportVatRate === rate
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                      )}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    value={exportVatRate}
+                    onChange={(e) => setExportVatRate(Number(e.target.value) || 23)}
+                    className="w-20 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-center"
+                    min="0"
+                    max="100"
+                    placeholder="%"
+                  />
+                </div>
+              </div>
+
+              {/* Podzielnik marży */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Podzielnik marży (cena zakupu = brutto / VAT / podzielnik)
+                </label>
+                <div className="flex gap-2">
+                  {[1.5, 2, 2.5, 3].map((div) => (
+                    <button
+                      key={div}
+                      type="button"
+                      onClick={() => setExportDivider(div)}
+                      className={clsx(
+                        'px-4 py-2 rounded-lg font-medium transition-all',
+                        exportDivider === div
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                      )}
+                    >
+                      /{div}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    value={exportDivider}
+                    onChange={(e) => setExportDivider(Number(e.target.value) || 2)}
+                    className="w-20 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-center"
+                    min="1"
+                    max="10"
+                    step="0.1"
+                    placeholder="/"
+                  />
+                </div>
+              </div>
+
+              {/* Podgląd przeliczenia */}
+              <div className="p-4 rounded-xl bg-slate-800/50 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calculator className="w-5 h-5 text-green-400" />
+                  <span className="font-medium text-white">Podgląd przeliczenia</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Suma brutto:</span>
+                    <span className="text-white font-medium">{calculateNettoPreview.totalBrutto.toFixed(2)} zł</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Formuła:</span>
+                    <span className="text-slate-300">brutto / {(1 + exportVatRate / 100).toFixed(2)} / {exportDivider}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-white/10">
+                    <span className="text-green-400 font-medium">Suma netto zakupu:</span>
+                    <span className="text-green-400 font-bold text-lg">{calculateNettoPreview.totalNetto.toFixed(2)} zł</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Przykład dla pojedynczego produktu */}
+              <div className="text-xs text-slate-500">
+                <span className="font-medium">Przykład:</span> Produkt 100 zł brutto → 100 / {(1 + exportVatRate / 100).toFixed(2)} / {exportDivider} = {(100 / (1 + exportVatRate / 100) / exportDivider).toFixed(2)} zł netto zakupu
+              </div>
+
+              {/* Tabela edycji VAT produktów */}
+              <div className="border-t border-amber-500/20 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Edit2 className="w-5 h-5 text-amber-400" />
+                  <span className="font-medium text-white">Edycja VAT produktów</span>
+                  <span className="text-xs text-slate-500">(kliknij, aby edytować)</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-white/5 border-b border-white/10">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-slate-400 font-medium">Lp</th>
+                        <th className="px-3 py-2 text-left text-slate-400 font-medium">Nazwa</th>
+                        <th className="px-3 py-2 text-right text-slate-400 font-medium">Brutto</th>
+                        <th className="px-3 py-2 text-center text-slate-400 font-medium">VAT</th>
+                        <th className="px-3 py-2 text-right text-slate-400 font-medium">Netto zakupu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventory.lines.map((line, idx) => {
+                        const brutto = Number(line.priceBrutto);
+                        const netto = brutto / (1 + line.vatRate / 100) / exportDivider;
+                        return (
+                          <tr key={line.id} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="px-3 py-2 text-slate-300">{idx + 1}</td>
+                            <td className="px-3 py-2 text-white">{line.tempName}</td>
+                            <td className="px-3 py-2 text-right text-white">{brutto.toFixed(2)} zł</td>
+                            <td className="px-3 py-2">
+                              <select
+                                value={line.vatRate}
+                                onChange={(e) => handleVatChange(line.id, Number(e.target.value))}
+                                className={clsx(
+                                  'px-2 py-1 rounded text-sm font-bold border cursor-pointer',
+                                  line.vatRate === 8
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                    : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                )}
+                              >
+                                <option value="8">8%</option>
+                                <option value="23">23%</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-2 text-right text-green-400 font-medium">{netto.toFixed(2)} zł</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Przyciski eksportu */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleExportExcel}
+                  disabled={exporting}
+                  icon={<FileSpreadsheet className="w-5 h-5" />}
+                  className="flex-1"
+                >
+                  Eksport Excel
+                </Button>
+                <Button
+                  onClick={handleExportPDF}
+                  disabled={exporting}
+                  variant="secondary"
+                  icon={<FileText className="w-5 h-5" />}
+                  className="flex-1"
+                >
+                  Eksport PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {isInProgress && (
         <form onSubmit={handleSubmit} className="pb-28 sm:pb-4">
           {/* All fields in one glass-card */}
@@ -603,21 +833,36 @@ export default function InventoryIntroDetailPage() {
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Nazwa <span className="text-slate-500 text-xs font-normal">(opcjonalnie)</span>
             </label>
-            {/* Quick name buttons - most common */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {['Doniczka', 'Ozdoba', 'Kwiat zywy', 'Inne'].map((name) => (
+            {/* Quick name buttons - kategorie produktów */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[
+                { short: 'Kw.cięty', full: 'Kwiat cięty' },
+                { short: 'Kw.donic.', full: 'Kwiat doniczkowy' },
+                { short: 'Art.dek.', full: 'Artykuł dekoracyjny' },
+                { short: 'Szkło', full: 'Szkło' },
+                { short: 'Ceramika', full: 'Ceramika' },
+                { short: 'Kw.sztucz.', full: 'Kwiat sztuczny' },
+                { short: 'Znicz', full: 'Znicz' },
+                { short: 'Wkłady', full: 'Wkłady do zniczy' },
+                { short: 'Świece', full: 'Świece' },
+                { short: 'Nawozy', full: 'Nawozy' },
+                { short: 'Ziemia', full: 'Ziemia' },
+                { short: 'Don.plast.', full: 'Doniczka plastikowa' },
+                { short: 'Wiklina', full: 'Wiklina' },
+              ].map((item) => (
                 <button
-                  key={name}
+                  key={item.full}
                   type="button"
-                  onClick={() => setProductName(name)}
+                  onClick={() => setProductName(item.full)}
                   className={clsx(
-                    'px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                    productName === name
+                    'px-2 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    productName === item.full
                       ? 'bg-primary-500 text-white'
                       : 'bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white'
                   )}
+                  title={item.full}
                 >
-                  {name}
+                  {item.short}
                 </button>
               ))}
             </div>
@@ -735,17 +980,20 @@ export default function InventoryIntroDetailPage() {
                     {Number(line.priceBrutto).toFixed(2)} zl | {line.quantity} {line.unit}
                   </div>
                   {/* Show who added and when */}
-                  <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                    {line.createdBy && (
-                      <>
-                        <User className="w-3 h-3" />
-                        <span>{line.createdBy.name}</span>
-                      </>
-                    )}
-                    {line.createdAt && (
-                      <span>
-                        {format(new Date(line.createdAt), 'dd.MM HH:mm', { locale: pl })}
-                      </span>
+                  <div className="flex flex-col gap-0.5 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      <span>{line.createdBy?.name || '?'}</span>
+                      <span>•</span>
+                      <span>{line.createdAt ? format(new Date(line.createdAt), 'dd.MM HH:mm', { locale: pl }) : ''}</span>
+                    </div>
+                    {line.updatedAt && (
+                      <div className="flex items-center gap-1 text-amber-500/70">
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edyt: {line.updatedBy?.name || '?'}</span>
+                        <span>•</span>
+                        <span>{format(new Date(line.updatedAt), 'dd.MM HH:mm', { locale: pl })}</span>
+                      </div>
                     )}
                   </div>
                 </div>

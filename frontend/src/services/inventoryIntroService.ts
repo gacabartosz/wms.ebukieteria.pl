@@ -10,8 +10,11 @@ export interface InventoryIntroLine {
   tempSku: string;
   tempName: string;
   productId?: string;
+  vatRate: number;
   createdBy?: { id: string; name: string };
   createdAt: string;
+  updatedBy?: { id: string; name: string };
+  updatedAt?: string;
 }
 
 export interface InventoryIntro {
@@ -43,6 +46,23 @@ export interface DefaultWarehouse {
   id: string;
   code: string;
   name: string;
+}
+
+export interface UserWarehouse {
+  id: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface UserLocation {
+  id: string;
+  barcode: string;
+  rack: string;
+  shelf: string;
+  level: string;
+  zone?: string;
+  warehouse: { id: string; code: string; name: string };
 }
 
 export const inventoryIntroService = {
@@ -97,6 +117,7 @@ export const inventoryIntroService = {
       priceBrutto?: number;
       name?: string;
       ean?: string;
+      vatRate?: number;
     }
   ): Promise<InventoryIntroLine> => {
     const response = await api.patch(`/inventory-intro/${id}/lines/${lineId}`, data);
@@ -131,6 +152,18 @@ export const inventoryIntroService = {
 
   getDefaultWarehouse: async (): Promise<DefaultWarehouse> => {
     const response = await api.get('/inventory-intro/default-warehouse');
+    return response.data;
+  },
+
+  getUserWarehouses: async (): Promise<UserWarehouse[]> => {
+    const response = await api.get('/inventory-intro/my-warehouses');
+    return response.data;
+  },
+
+  getUserLocations: async (warehouseId?: string): Promise<UserLocation[]> => {
+    const response = await api.get('/inventory-intro/my-locations', {
+      params: warehouseId ? { warehouseId } : undefined,
+    });
     return response.data;
   },
 

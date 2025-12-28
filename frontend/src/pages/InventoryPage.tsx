@@ -10,7 +10,6 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import { inventoryService } from '../services/inventoryService';
 import { inventoryIntroService } from '../services/inventoryIntroService';
-import { warehousesService } from '../services/warehousesService';
 import { useAuthStore } from '../store/authStore';
 import type { InventoryCount } from '../types';
 import clsx from 'clsx';
@@ -33,7 +32,7 @@ export default function InventoryPage() {
   const [inventoryType, setInventoryType] = useState<InventoryType>(null);
   const [filters, setFilters] = useState({ status: '' });
   const [newInventory, setNewInventory] = useState({ name: '', warehouseId: '' });
-  const [newIntroInventory, setNewIntroInventory] = useState({ name: '' });
+  const [newIntroInventory, setNewIntroInventory] = useState({ name: '', warehouseId: '', locationBarcode: '' });
   const [editingInventory, setEditingInventory] = useState<InventoryCount | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<InventoryCount | null>(null);
@@ -48,16 +47,24 @@ export default function InventoryPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteConfirmCheckbox, setDeleteConfirmCheckbox] = useState(false);
 
-  const { data: warehousesData } = useQuery({
-    queryKey: ['warehouses'],
-    queryFn: () => warehousesService.getWarehouses({ limit: 100 }),
+  // Get user's warehouses (tylko przypisane do użytkownika, ADMIN widzi wszystkie)
+  const { data: userWarehouses } = useQuery({
+    queryKey: ['inventory-intro-user-warehouses'],
+    queryFn: () => inventoryIntroService.getUserWarehouses(),
+    enabled: showForm, // Ładuj gdy formularz jest otwarty
   });
 
-  // Get default warehouse for intro inventory
-  const { data: defaultWarehouse } = useQuery({
-    queryKey: ['inventory-intro-default-warehouse'],
-    queryFn: () => inventoryIntroService.getDefaultWarehouse(),
-    enabled: inventoryType === 'intro',
+  // Auto-select default warehouse when userWarehouses loads
+  const defaultWarehouse = userWarehouses?.find(w => w.isDefault) || userWarehouses?.[0];
+
+  // Get selected warehouse ID for locations query
+  const selectedWarehouseId = newIntroInventory.warehouseId || defaultWarehouse?.id;
+
+  // Get user's locations for selected warehouse
+  const { data: userLocations } = useQuery({
+    queryKey: ['inventory-intro-user-locations', selectedWarehouseId],
+    queryFn: () => inventoryIntroService.getUserLocations(selectedWarehouseId),
+    enabled: inventoryType === 'intro' && !!selectedWarehouseId,
   });
 
   const { data, isLoading } = useQuery({
@@ -93,7 +100,7 @@ export default function InventoryPage() {
       toast.success('Inwentaryzacja utworzona');
       setShowForm(false);
       setInventoryType(null);
-      setNewIntroInventory({ name: '' });
+      setNewIntroInventory({ name: '', warehouseId: '', locationBarcode: '' });
       navigate(`/inventory-intro/${inv.id}`);
     },
     onError: (error: any) => {
@@ -156,14 +163,21 @@ export default function InventoryPage() {
       toast.error('Podaj nazwe inwentaryzacji');
       return;
     }
-    if (!defaultWarehouse) {
-      toast.error('Brak domyslnego magazynu');
+    const whId = newIntroInventory.warehouseId || defaultWarehouse?.id;
+    if (!whId) {
+      toast.error('Wybierz magazyn');
+      return;
+    }
+    // Użyj wybranej lokalizacji lub pierwszej dostępnej
+    const locationBarcode = newIntroInventory.locationBarcode || userLocations?.[0]?.barcode;
+    if (!locationBarcode) {
+      toast.error('Wybierz lokalizację');
       return;
     }
     createIntroMutation.mutate({
       name: newIntroInventory.name,
-      warehouseId: defaultWarehouse.id,
-      defaultLocationBarcode: 'TAR-KWIACIARNIA-01',
+      warehouseId: whId,
+      defaultLocationBarcode: locationBarcode,
     });
   };
 
@@ -171,7 +185,7 @@ export default function InventoryPage() {
     setShowForm(false);
     setInventoryType(null);
     setNewInventory({ name: '', warehouseId: '' });
-    setNewIntroInventory({ name: '' });
+    setNewIntroInventory({ name: '', warehouseId: '', locationBarcode: '' });
   };
 
   const handleExport = async (e: React.MouseEvent, id: string, name: string) => {
@@ -348,44 +362,83 @@ export default function InventoryPage() {
               />
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Magazyn</label>
-                <select
-                  value={newInventory.warehouseId}
-                  onChange={(e) => setNewInventory({ ...newInventory, warehouseId: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
-                >
-                  <option value="">Wybierz magazyn</option>
-                  {warehousesData?.data.map((wh) => (
-                    <option key={wh.id} value={wh.id}>{wh.code} - {wh.name}</option>
-                  ))}
-                </select>
+                {userWarehouses && userWarehouses.length > 0 ? (
+                  <select
+                    value={newInventory.warehouseId}
+                    onChange={(e) => setNewInventory({ ...newInventory, warehouseId: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
+                  >
+                    <option value="">Wybierz magazyn</option>
+                    {userWarehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id}>{wh.code} - {wh.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
+                    Brak przypisanych magazynów. Skontaktuj się z administratorem.
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" onClick={handleCloseForm} className="flex-1">
                   Anuluj
                 </Button>
-                <Button type="submit" loading={createMutation.isPending} className="flex-1">
+                <Button type="submit" loading={createMutation.isPending} className="flex-1" disabled={!userWarehouses || userWarehouses.length === 0}>
                   Utworz
                 </Button>
               </div>
             </form>
           )}
 
-          {/* Intro inventory form - simplified */}
+          {/* Intro inventory form - with warehouse and location selection */}
           {inventoryType === 'intro' && (
             <form onSubmit={handleCreateIntro} className="space-y-3">
-              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                <div className="flex items-center gap-2 text-green-400 text-sm">
-                  <Camera className="w-4 h-4" />
-                  <span className="font-medium">TAR-KWIACIARNIA</span>
-                </div>
-                <div className="text-xs text-slate-400 mt-1">
-                  Domyslny magazyn i lokalizacja
-                </div>
+              {/* Warehouse selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Magazyn</label>
+                {userWarehouses && userWarehouses.length > 0 ? (
+                  <select
+                    value={newIntroInventory.warehouseId || defaultWarehouse?.id || ''}
+                    onChange={(e) => setNewIntroInventory({ ...newIntroInventory, warehouseId: e.target.value, locationBarcode: '' })}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
+                  >
+                    {userWarehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id}>
+                        {wh.code} - {wh.name} {wh.isDefault ? '(domyślny)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
+                    Brak przypisanych magazynów. Skontaktuj się z administratorem.
+                  </div>
+                )}
+              </div>
+              {/* Location selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Lokalizacja</label>
+                {userLocations && userLocations.length > 0 ? (
+                  <select
+                    value={newIntroInventory.locationBarcode || userLocations[0]?.barcode || ''}
+                    onChange={(e) => setNewIntroInventory({ ...newIntroInventory, locationBarcode: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white"
+                  >
+                    {userLocations.map((loc) => (
+                      <option key={loc.id} value={loc.barcode}>
+                        {loc.barcode} ({loc.rack}/{loc.shelf}/{loc.level})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
+                    Brak lokalizacji w wybranym magazynie.
+                  </div>
+                )}
               </div>
               <Input
                 label="Nazwa inwentaryzacji"
                 value={newIntroInventory.name}
-                onChange={(e) => setNewIntroInventory({ name: e.target.value })}
+                onChange={(e) => setNewIntroInventory({ ...newIntroInventory, name: e.target.value })}
                 placeholder="np. Przyjecie towaru 27.12"
                 autoFocus
               />
@@ -393,7 +446,7 @@ export default function InventoryPage() {
                 <Button type="button" variant="secondary" onClick={handleCloseForm} className="flex-1">
                   Anuluj
                 </Button>
-                <Button type="submit" loading={createIntroMutation.isPending} className="flex-1">
+                <Button type="submit" loading={createIntroMutation.isPending} className="flex-1" disabled={!userWarehouses || userWarehouses.length === 0 || !userLocations || userLocations.length === 0}>
                   Utworz
                 </Button>
               </div>

@@ -143,16 +143,26 @@ export const inventoryIntroController = {
     }
   },
 
+  async getUserLocations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const warehouseId = req.query.warehouseId as string | undefined;
+      const result = await inventoryIntroService.getUserLocations(req.user!.id, warehouseId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   // Export do Excel (tylko ADMIN)
   async exportExcel(req: Request, res: Response, next: NextFunction) {
     try {
-      const { inventoryIds, vatRate } = req.body;
+      const { inventoryIds, vatRate, divider } = req.body;
 
       if (!inventoryIds || !Array.isArray(inventoryIds) || inventoryIds.length === 0) {
         return res.status(400).json({ error: 'Wybierz co najmniej jedną inwentaryzację' });
       }
 
-      const workbook = await inventoryIntroService.exportToExcel(inventoryIds, vatRate || 23);
+      const workbook = await inventoryIntroService.exportToExcel(inventoryIds, vatRate || 23, divider || 2);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=inwentaryzacja_${Date.now()}.xlsx`);
@@ -167,13 +177,13 @@ export const inventoryIntroController = {
   // Export do CSV (tylko ADMIN)
   async exportCSV(req: Request, res: Response, next: NextFunction) {
     try {
-      const { inventoryIds, vatRate } = req.body;
+      const { inventoryIds, vatRate, divider } = req.body;
 
       if (!inventoryIds || !Array.isArray(inventoryIds) || inventoryIds.length === 0) {
         return res.status(400).json({ error: 'Wybierz co najmniej jedną inwentaryzację' });
       }
 
-      const csv = await inventoryIntroService.exportToCSV(inventoryIds, vatRate || 23);
+      const csv = await inventoryIntroService.exportToCSV(inventoryIds, vatRate || 23, divider || 2);
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename=inwentaryzacja_${Date.now()}.csv`);
@@ -187,13 +197,13 @@ export const inventoryIntroController = {
   // Export do PDF ze zdjęciami
   async exportPDF(req: Request, res: Response, next: NextFunction) {
     try {
-      const { inventoryIds, vatRate } = req.body;
+      const { inventoryIds, vatRate, divider } = req.body;
 
       if (!inventoryIds || !Array.isArray(inventoryIds) || inventoryIds.length === 0) {
         return res.status(400).json({ error: 'Wybierz co najmniej jedną inwentaryzację' });
       }
 
-      const doc = await inventoryIntroService.exportToPDF(inventoryIds, vatRate || 23);
+      const doc = await inventoryIntroService.exportToPDF(inventoryIds, vatRate || 23, divider || 2);
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=inwentaryzacja_${Date.now()}.pdf`);

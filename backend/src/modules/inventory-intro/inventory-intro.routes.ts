@@ -9,6 +9,9 @@ router.use(authMiddleware);
 // Magazyny dostępne dla użytkownika
 router.get('/my-warehouses', inventoryIntroController.getUserWarehouses);
 
+// Lokalizacje dostępne dla użytkownika (z jego magazynów)
+router.get('/my-locations', inventoryIntroController.getUserLocations);
+
 // Domyślny magazyn TAR-KWIACIARNIA
 router.get('/default-warehouse', inventoryIntroController.getDefaultWarehouse);
 
