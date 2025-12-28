@@ -117,6 +117,12 @@ export const inventoryIntroService = {
     return response.data;
   },
 
+  // Cofnij anulowanie (ADMIN only)
+  uncancel: async (id: string): Promise<InventoryIntro> => {
+    const response = await api.post(`/inventory-intro/${id}/uncancel`);
+    return response.data;
+  },
+
   // Usuwanie inwentaryzacji (ADMIN only)
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await api.delete(`/inventory-intro/${id}`);

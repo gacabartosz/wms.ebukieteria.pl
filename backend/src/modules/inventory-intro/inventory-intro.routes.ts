@@ -28,9 +28,10 @@ router.post('/:id/lines', inventoryIntroController.addLine);
 router.patch('/:id/lines/:lineId', inventoryIntroController.updateLine);
 router.delete('/:id/lines/:lineId', inventoryIntroController.deleteLine);
 
-// Akcje (tylko ADMIN może zakończyć)
+// Akcje (tylko ADMIN może zakończyć/anulować/cofnąć anulowanie)
 router.post('/:id/complete', requireRole('ADMIN'), inventoryIntroController.complete);
-router.post('/:id/cancel', inventoryIntroController.cancel);
+router.post('/:id/cancel', requireRole('ADMIN'), inventoryIntroController.cancel);
+router.post('/:id/uncancel', requireRole('ADMIN'), inventoryIntroController.uncancel);
 
 // Usuwanie inwentaryzacji (tylko ADMIN)
 router.delete('/:id', requireRole('ADMIN'), inventoryIntroController.delete);

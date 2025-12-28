@@ -400,6 +400,25 @@ export const inventoryIntroService = {
     });
   },
 
+  // UNCANCEL - Cofnij anulowanie inwentaryzacji (tylko ADMIN)
+  async uncancel(id: string) {
+    const intro = await prisma.inventoryIntro.findUnique({
+      where: { id },
+    });
+
+    if (!intro) {
+      throw new Error('Inwentaryzacja nie znaleziona');
+    }
+    if (intro.status !== 'CANCELLED') {
+      throw new Error('Mozna cofnac anulowanie tylko anulowanych inwentaryzacji');
+    }
+
+    return prisma.inventoryIntro.update({
+      where: { id },
+      data: { status: 'IN_PROGRESS' },
+    });
+  },
+
   // GET SUMMARY - Podsumowanie
   async getSummary(id: string) {
     const intro = await this.getById(id);

@@ -93,6 +93,16 @@ export const inventoryIntroController = {
     }
   },
 
+  // UNCANCEL - Cofnij anulowanie (tylko ADMIN)
+  async uncancel(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await inventoryIntroService.uncancel(req.params.id);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   // DELETE - Usuń całą inwentaryzację (tylko ADMIN)
   async delete(req: Request, res: Response, next: NextFunction) {
     try {

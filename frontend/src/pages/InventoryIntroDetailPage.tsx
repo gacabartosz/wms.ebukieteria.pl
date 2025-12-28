@@ -172,11 +172,24 @@ export default function InventoryIntroDetailPage() {
     mutationFn: () => inventoryIntroService.cancel(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-intro'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-intro', id] });
       toast.success('Inwentaryzacja anulowana');
-      navigate('/inventory');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Blad anulowania');
+    },
+  });
+
+  // Uncancel mutation (ADMIN only)
+  const uncancelMutation = useMutation({
+    mutationFn: () => inventoryIntroService.uncancel(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-intro'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-intro', id] });
+      toast.success('Cofnieto anulowanie - inwentaryzacja wznowiona');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Blad cofania anulowania');
     },
   });
 
@@ -381,6 +394,7 @@ export default function InventoryIntroDetailPage() {
   }
 
   const isInProgress = inventory.status === 'IN_PROGRESS';
+  const isCancelled = inventory.status === 'CANCELLED';
 
   return (
     <Layout
@@ -408,25 +422,38 @@ export default function InventoryIntroDetailPage() {
               </button>
             </>
           )}
-          {/* Cancel/Complete - only in progress */}
-          {isInProgress && (
+          {/* ADMIN actions */}
+          {isAdmin && (
             <>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => cancelMutation.mutate()}
-                loading={cancelMutation.isPending}
-              >
-                Anuluj
-              </Button>
-              {/* Only ADMIN can complete */}
-              {isAdmin && (
+              {/* Cancel - only in progress, only ADMIN */}
+              {isInProgress && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => cancelMutation.mutate()}
+                    loading={cancelMutation.isPending}
+                  >
+                    Anuluj
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowCompleteModal(true)}
+                    disabled={inventory.lines.length === 0}
+                  >
+                    Zakoncz
+                  </Button>
+                </>
+              )}
+              {/* Uncancel - only cancelled, only ADMIN */}
+              {isCancelled && (
                 <Button
                   size="sm"
-                  onClick={() => setShowCompleteModal(true)}
-                  disabled={inventory.lines.length === 0}
+                  variant="secondary"
+                  onClick={() => uncancelMutation.mutate()}
+                  loading={uncancelMutation.isPending}
                 >
-                  Zakoncz
+                  Cofnij anulowanie
                 </Button>
               )}
             </>
