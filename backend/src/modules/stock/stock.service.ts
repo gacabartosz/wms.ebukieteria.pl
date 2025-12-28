@@ -43,7 +43,7 @@ export const getStock = async (params: {
       skip,
       take,
       include: {
-        product: { select: { id: true, sku: true, name: true } },
+        product: { select: { id: true, sku: true, name: true, imageUrl: true } },
         location: {
           select: {
             id: true,
