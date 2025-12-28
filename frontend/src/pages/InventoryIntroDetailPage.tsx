@@ -492,13 +492,13 @@ export default function InventoryIntroDetailPage() {
             </label>
             {/* Quick name buttons - most common */}
             <div className="flex flex-wrap gap-2 mb-3">
-              {['Roza', 'Storczyk', 'Doniczka', 'Bukiet', 'Kompozycja', 'Ozdoba'].map((name) => (
+              {['Doniczka', 'Ozdoba', 'Kwiat zywy', 'Inne'].map((name) => (
                 <button
                   key={name}
                   type="button"
                   onClick={() => setProductName(name)}
                   className={clsx(
-                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-all',
                     productName === name
                       ? 'bg-primary-500 text-white'
                       : 'bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white'
