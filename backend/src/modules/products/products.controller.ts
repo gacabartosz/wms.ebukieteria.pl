@@ -79,6 +79,16 @@ export const deactivateProduct = async (req: Request, res: Response, next: NextF
   }
 };
 
+export const searchAutocomplete = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const query = req.query.q as string;
+    const result = await productsService.searchProductsAutocomplete(query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const exportProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const products = await productsService.getAllProductsForExport();

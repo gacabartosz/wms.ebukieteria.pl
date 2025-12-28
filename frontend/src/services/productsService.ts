@@ -57,4 +57,11 @@ export const productsService = {
   exportToExcel: async (): Promise<void> => {
     await downloadFile('/products/export', 'produkty.xlsx');
   },
+
+  // Autocomplete search - max 10 results
+  searchAutocomplete: async (query: string): Promise<{ id: string; sku: string; ean: string | null; name: string }[]> => {
+    if (!query || query.length < 2) return [];
+    const response = await api.get('/products/search', { params: { q: query } });
+    return response.data;
+  },
 };

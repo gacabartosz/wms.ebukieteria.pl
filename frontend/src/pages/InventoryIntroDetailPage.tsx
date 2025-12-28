@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +14,28 @@ import {
   User,
   X,
 } from 'lucide-react';
+
+// Lokalny słownik nazw produktów - NIE OBCIĄŻA SYSTEMU (statyczna lista)
+const PRODUCT_NAME_SUGGESTIONS = [
+  // Kwiaty cięte
+  'Róża', 'Tulipan', 'Goździk', 'Gerbera', 'Lilia', 'Chryzantema', 'Słonecznik', 'Frezja', 'Irys', 'Piwonia',
+  // Kwiaty doniczkowe
+  'Storczyk', 'Skrzydłokwiat', 'Anturium', 'Fikus', 'Monstera', 'Sansewieria', 'Kalanchoe', 'Begonia', 'Fiołek afrykański',
+  // Rośliny zielone
+  'Paproć', 'Bluszcz', 'Palma', 'Dracena', 'Juka', 'Zamiokulkas', 'Aloes',
+  // Doniczki
+  'Doniczka ceramiczna', 'Doniczka plastikowa', 'Doniczka betonowa', 'Doniczka rattanowa', 'Doniczka z podstawką', 'Osłonka',
+  // Wazony
+  'Wazon szklany', 'Wazon ceramiczny', 'Wazon kryształowy', 'Wazon metalowy',
+  // Ozdoby
+  'Ozdoba świąteczna', 'Ozdoba wielkanocna', 'Wstążka', 'Siatka florystyczna', 'Rafia',
+  // Akcesoria
+  'Gąbka florystyczna', 'Drut florystyczny', 'Sekator', 'Taśma', 'Koszyk',
+  // Kompozycje
+  'Bukiet mieszany', 'Kompozycja w koszu', 'Wieniec', 'Wiązanka',
+  // Inne
+  'Ziemia', 'Nawóz', 'Zestaw narzędzi',
+].sort();
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -36,12 +58,23 @@ export default function InventoryIntroDetailPage() {
   const [imagePreview, setImagePreview] = useState<string>('');
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
   const [productName, setProductName] = useState<string>('');
+  const [showNameSuggestions, setShowNameSuggestions] = useState<boolean>(false);
   const [priceBrutto, setPriceBrutto] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [unit, setUnit] = useState<string>('szt');
   const [ean, setEan] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Filtruj sugestie nazw - lokalne, bez API
+  const filteredNameSuggestions = useMemo(() => {
+    if (!productName || productName.length < 1) return [];
+    const search = productName.toLowerCase();
+    return PRODUCT_NAME_SUGGESTIONS
+      .filter((name) => name.toLowerCase().startsWith(search))
+      .slice(0, 8);
+  }, [productName]);
 
   // Edit state
   const [editingLine, setEditingLine] = useState<InventoryIntroLine | null>(null);
@@ -49,6 +82,16 @@ export default function InventoryIntroDetailPage() {
   const [editPrice, setEditPrice] = useState<string>('');
   const [editName, setEditName] = useState<string>('');
   const [editEan, setEditEan] = useState<string>('');
+  const [showEditNameSuggestions, setShowEditNameSuggestions] = useState<boolean>(false);
+
+  // Filtruj sugestie nazw dla edycji
+  const filteredEditNameSuggestions = useMemo(() => {
+    if (!editName || editName.length < 1) return [];
+    const search = editName.toLowerCase();
+    return PRODUCT_NAME_SUGGESTIONS
+      .filter((name) => name.toLowerCase().startsWith(search))
+      .slice(0, 8);
+  }, [editName]);
 
   // Fetch inventory data
   const { data: inventory, isLoading } = useQuery({
@@ -319,7 +362,9 @@ export default function InventoryIntroDetailPage() {
       </div>
 
       {isInProgress && (
-        <form onSubmit={handleSubmit} className="space-y-4 pb-28 sm:pb-4">
+        <form onSubmit={handleSubmit} className="pb-28 sm:pb-4">
+          {/* All fields in one glass-card */}
+          <div className="glass-card p-4 space-y-4">
           {/* Image capture - always camera */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -440,31 +485,76 @@ export default function InventoryIntroDetailPage() {
             </div>
           </div>
 
-          {/* Product name (optional) - first */}
-          <div className="rounded-xl bg-purple-500/10 border border-purple-500/30 p-4">
-            <label className="block text-sm font-bold text-purple-300 mb-2">
-              Nazwa <span className="text-purple-400/60 text-xs font-normal">(opcjonalnie)</span>
+          {/* Product name (optional) - with autocomplete */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Nazwa <span className="text-slate-500 text-xs font-normal">(opcjonalnie)</span>
             </label>
-            <input
-              type="text"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder="Nazwa produktu"
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-purple-500/30 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
-            />
+            {/* Quick name buttons - most common */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {['Roza', 'Storczyk', 'Doniczka', 'Bukiet', 'Kompozycja', 'Ozdoba'].map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setProductName(name)}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                    productName === name
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white'
+                  )}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={productName}
+                onChange={(e) => {
+                  setProductName(e.target.value);
+                  setShowNameSuggestions(true);
+                }}
+                onFocus={() => setShowNameSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                placeholder="Wpisz lub wybierz ze slownika..."
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+              />
+              {/* Autocomplete dropdown */}
+              {showNameSuggestions && filteredNameSuggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 rounded-xl bg-slate-800 border border-white/20 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                  {filteredNameSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setProductName(suggestion);
+                        setShowNameSuggestions(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-primary-500/20 transition-colors border-b border-white/5 last:border-b-0"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* EAN (optional) - at the end */}
-          <div className="rounded-xl bg-purple-500/10 border border-purple-500/30 p-4">
-            <label className="block text-sm font-bold text-purple-300 mb-2">
-              EAN <span className="text-purple-400/60 text-xs font-normal">(opcjonalnie)</span>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              EAN <span className="text-slate-500 text-xs font-normal">(opcjonalnie)</span>
             </label>
             <input
               type="text"
               value={ean}
               onChange={(e) => setEan(e.target.value)}
               placeholder="Kod kreskowy"
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-purple-500/30 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
             />
           </div>
 
@@ -476,8 +566,21 @@ export default function InventoryIntroDetailPage() {
             </div>
           )}
 
+          {/* Submit button inside card on desktop */}
+          <div className="hidden sm:block pt-2">
+            <Button
+              type="submit"
+              className="w-full py-5 text-xl font-bold"
+              icon={<Check className="w-6 h-6" />}
+              loading={addLineMutation.isPending}
+            >
+              ZAPISZ PRODUKT
+            </Button>
+          </div>
+          </div>{/* End of glass-card */}
+
           {/* Submit button - fixed on mobile */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent sm:relative sm:p-0 sm:bg-transparent z-50">
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent sm:hidden z-50">
             <Button
               type="submit"
               className="w-full py-5 text-xl font-bold"
@@ -635,18 +738,44 @@ export default function InventoryIntroDetailPage() {
               </div>
             </div>
 
-            {/* Edit Name - before EAN */}
+            {/* Edit Name - before EAN - with autocomplete */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Nazwa <span className="text-slate-500">(opcjonalnie)</span>
+                Nazwa <span className="text-slate-500">(opcjonalnie - slownik)</span>
               </label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Nazwa produktu"
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-transparent"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => {
+                    setEditName(e.target.value);
+                    setShowEditNameSuggestions(true);
+                  }}
+                  onFocus={() => setShowEditNameSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowEditNameSuggestions(false), 200)}
+                  placeholder="Wpisz lub wybierz..."
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-transparent"
+                />
+                {/* Autocomplete dropdown */}
+                {showEditNameSuggestions && filteredEditNameSuggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 rounded-xl bg-slate-800 border border-white/20 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                    {filteredEditNameSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setEditName(suggestion);
+                          setShowEditNameSuggestions(false);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-white hover:bg-primary-500/30 transition-colors border-b border-white/5 last:border-b-0"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Edit EAN - at the end */}

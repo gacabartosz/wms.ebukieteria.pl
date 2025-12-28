@@ -8,6 +8,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', productsController.getProducts);
+router.get('/search', productsController.searchAutocomplete);  // Autocomplete search
 router.get('/export', productsController.exportProducts);
 router.get('/by-code/:code', productsController.getProductByCode);
 router.get('/:id', productsController.getProductById);

@@ -47,4 +47,14 @@ export const usersService = {
   deactivateUser: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
   },
+
+  // Warehouse assignments
+  getUserWarehouses: async (id: string): Promise<{ id: string; code: string; name: string }[]> => {
+    const response = await api.get(`/users/${id}/warehouses`);
+    return response.data;
+  },
+
+  updateUserWarehouses: async (id: string, warehouseIds: string[]): Promise<void> => {
+    await api.put(`/users/${id}/warehouses`, { warehouseIds });
+  },
 };

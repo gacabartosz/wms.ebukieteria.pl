@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Package, Check, Box, Minus, Plus } from 'lucide-react';
+import { MapPin, Package, Check, Box, Minus, Plus, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
@@ -10,6 +10,16 @@ import { containersService } from '../services/containersService';
 import { productsService } from '../services/productsService';
 import { playBeep, playLocationBeep } from '../utils/sounds';
 import clsx from 'clsx';
+
+// Debounce hook for product search
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 type Step = 'scan-location' | 'scan-products' | 'completed';
 
@@ -49,11 +59,34 @@ export default function InventoryDetailPage() {
   const [pendingQty, setPendingQty] = useState<number>(1);
   const qtyInputRef = useRef<HTMLInputElement>(null);
 
+  // Product search autocomplete
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const debouncedSearch = useDebounce(inputValue, 300);
+
+  // Query for product autocomplete (only when typing manually, not scanning)
+  const { data: searchResults } = useQuery({
+    queryKey: ['products-autocomplete', debouncedSearch],
+    queryFn: () => productsService.searchAutocomplete(debouncedSearch),
+    enabled: step === 'scan-products' && debouncedSearch.length >= 2 && showSearchDropdown,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
   // Helper to clear input and reset scanner detection
   const clearInput = useCallback(() => {
     setInputValue('');
     inputLengthBeforeRef.current = 0;
     lastInputTimeRef.current = 0;
+    setShowSearchDropdown(false);
+  }, []);
+
+  // Handle selecting product from autocomplete dropdown
+  const handleSelectProduct = useCallback(async (product: { id: string; sku: string; ean: string | null; name: string }) => {
+    setShowSearchDropdown(false);
+    setInputValue('');
+
+    // Process as if scanned by EAN or SKU
+    const code = product.ean || product.sku;
+    await handleProductScan(code);
   }, []);
 
   // Save pending product to backend
@@ -299,12 +332,19 @@ export default function InventoryDetailPage() {
 
     if (isScannerInput && value.trim().length >= 8) {
       // Scanner detected - auto-submit after short delay to catch any trailing chars
+      setShowSearchDropdown(false);  // Hide dropdown for scanner input
       autoSubmitTimerRef.current = setTimeout(() => {
         processCode(value.trim());
       }, 100);
+    } else {
+      // Manual typing - show dropdown for product search
+      if (step === 'scan-products' && value.length >= 2) {
+        setShowSearchDropdown(true);
+      } else {
+        setShowSearchDropdown(false);
+      }
     }
-    // Manual typing - no auto-submit, user must press Enter
-  }, [processCode]);
+  }, [processCode, step]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -496,8 +536,10 @@ export default function InventoryDetailPage() {
               type="text"
               value={inputValue}
               onChange={handleInputChange}
+              onFocus={() => step === 'scan-products' && inputValue.length >= 2 && setShowSearchDropdown(true)}
+              onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
               disabled={isProcessing}
-              placeholder={step === 'scan-location' ? 'Kod lokalizacji (np. PL1-01-01-01)' : 'Kod EAN produktu lub kuwety (K...)'}
+              placeholder={step === 'scan-location' ? 'Kod lokalizacji (np. PL1-01-01-01)' : 'Skanuj EAN lub wpisz nazwe produktu...'}
               className="w-full px-4 py-4 rounded-xl bg-white/5 border-2 border-white/10 text-white text-lg font-mono text-center focus:border-primary-500 focus:outline-none transition-colors disabled:opacity-50"
               autoComplete="off"
               autoCapitalize="characters"
@@ -505,6 +547,33 @@ export default function InventoryDetailPage() {
             {isProcessing && (
               <div className="absolute right-4 top-1/2 -translate-y-1/2">
                 <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+              </div>
+            )}
+
+            {/* Product search autocomplete dropdown */}
+            {showSearchDropdown && searchResults && searchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-2 rounded-xl bg-slate-800 border border-white/20 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                <div className="px-3 py-2 bg-slate-700/50 text-xs text-slate-400 flex items-center gap-2">
+                  <Search className="w-3 h-3" />
+                  Znalezione produkty ({searchResults.length})
+                </div>
+                {searchResults.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectProduct(product);
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-primary-500/20 transition-colors border-b border-white/5 last:border-b-0"
+                  >
+                    <div className="font-mono font-medium text-white">{product.sku}</div>
+                    <div className="text-sm text-slate-400 truncate">{product.name}</div>
+                    {product.ean && (
+                      <div className="text-xs text-slate-500">EAN: {product.ean}</div>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>

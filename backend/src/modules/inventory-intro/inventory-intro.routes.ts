@@ -31,4 +31,7 @@ router.delete('/:id/lines/:lineId', inventoryIntroController.deleteLine);
 router.post('/:id/complete', inventoryIntroController.complete);
 router.post('/:id/cancel', inventoryIntroController.cancel);
 
+// Usuwanie inwentaryzacji (tylko ADMIN)
+router.delete('/:id', requireRole('ADMIN'), inventoryIntroController.delete);
+
 export default router;

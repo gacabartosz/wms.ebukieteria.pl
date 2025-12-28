@@ -117,6 +117,12 @@ export const inventoryIntroService = {
     return response.data;
   },
 
+  // Usuwanie inwentaryzacji (ADMIN only)
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/inventory-intro/${id}`);
+    return response.data;
+  },
+
   getDefaultWarehouse: async (): Promise<DefaultWarehouse> => {
     const response = await api.get('/inventory-intro/default-warehouse');
     return response.data;

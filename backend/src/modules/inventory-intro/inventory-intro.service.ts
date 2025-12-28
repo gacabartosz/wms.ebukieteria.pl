@@ -325,6 +325,61 @@ export const inventoryIntroService = {
     return this.getById(id);
   },
 
+  // DELETE - Usuń inwentaryzację (tylko ADMIN)
+  async delete(id: string, userId: string) {
+    const intro = await prisma.inventoryIntro.findUnique({
+      where: { id },
+      include: {
+        lines: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!intro) {
+      throw new Error('Inwentaryzacja nie znaleziona');
+    }
+
+    // Pobierz nazwę użytkownika do logowania
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    // Transakcja - usuń produkty, stany, linie i inwentaryzację
+    await prisma.$transaction(async (tx) => {
+      // Jeśli inwentaryzacja była zakończona, usuń utworzone produkty i stany
+      if (intro.status === 'COMPLETED') {
+        for (const line of intro.lines) {
+          if (line.productId) {
+            // Usuń stany magazynowe produktu
+            await tx.stock.deleteMany({
+              where: { productId: line.productId },
+            });
+            // Usuń produkt
+            await tx.product.delete({
+              where: { id: line.productId },
+            });
+          }
+        }
+      }
+
+      // Usuń wszystkie linie inwentaryzacji
+      await tx.inventoryIntroLine.deleteMany({
+        where: { inventoryIntroId: id },
+      });
+
+      // Usuń inwentaryzację
+      await tx.inventoryIntro.delete({
+        where: { id },
+      });
+    });
+
+    console.log(`[INVENTORY-INTRO] USUNIETO inwentaryzacje ${intro.number} (${intro.name}) przez ${user?.name || 'Unknown'}. Status: ${intro.status}, Produktow: ${intro.lines.length}`);
+
+    return { message: 'Inwentaryzacja zostala usunieta' };
+  },
+
   // CANCEL - Anuluj inwentaryzację
   async cancel(id: string) {
     const intro = await prisma.inventoryIntro.findUnique({

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, User as UserIcon, Shield, ShieldCheck, Warehouse, Check, X, Edit2, Key, Trash2, Copy } from 'lucide-react';
+import { UserPlus, User as UserIcon, Shield, ShieldCheck, Warehouse, Check, X, Edit2, Key, Trash2, Copy, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { usersService } from '../services/usersService';
+import { warehousesService } from '../services/warehousesService';
 import { useAuthStore } from '../store/authStore';
 import type { User } from '../types';
 import clsx from 'clsx';
@@ -39,10 +40,21 @@ export default function UsersPage() {
   // Delete state
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
 
+  // Warehouse assignment state
+  const [warehouseUser, setWarehouseUser] = useState<User | null>(null);
+  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([]);
+
   const { data, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: () => usersService.getUsers({ limit: 100 }),
   });
+
+  // Fetch all warehouses
+  const { data: warehousesData } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesService.getWarehouses(),
+  });
+  const allWarehouses = warehousesData?.data || [];
 
   const createMutation = useMutation({
     mutationFn: usersService.createUser,
@@ -104,6 +116,19 @@ export default function UsersPage() {
     },
   });
 
+  const updateWarehousesMutation = useMutation({
+    mutationFn: ({ userId, warehouseIds }: { userId: string; warehouseIds: string[] }) =>
+      usersService.updateUserWarehouses(userId, warehouseIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setWarehouseUser(null);
+      toast.success('Magazyny zaktualizowane');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd aktualizacji magazynów');
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.phone || !newUser.password || !newUser.name) {
@@ -158,6 +183,30 @@ export default function UsersPage() {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewPassword(password);
+  };
+
+  const handleWarehouseAssignment = (user: User) => {
+    setWarehouseUser(user);
+    // Get user's current warehouses
+    const userWarehouses = (user as any).warehouses || [];
+    setSelectedWarehouses(userWarehouses.map((w: any) => w.id));
+  };
+
+  const toggleWarehouse = (warehouseId: string) => {
+    setSelectedWarehouses((prev) =>
+      prev.includes(warehouseId)
+        ? prev.filter((id) => id !== warehouseId)
+        : [...prev, warehouseId]
+    );
+  };
+
+  const handleSaveWarehouses = () => {
+    if (warehouseUser) {
+      updateWarehousesMutation.mutate({
+        userId: warehouseUser.id,
+        warehouseIds: selectedWarehouses,
+      });
+    }
   };
 
   return (
@@ -343,6 +392,67 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Warehouse Assignment Modal */}
+      {warehouseUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-6 w-full max-w-md animate-fade-in">
+            <h3 className="font-medium text-white text-lg mb-2">Przypisz magazyny</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Użytkownik: <span className="text-white">{warehouseUser.name}</span>
+            </p>
+
+            {allWarehouses.length === 0 ? (
+              <p className="text-slate-400 text-sm py-4 text-center">Brak magazynów do przypisania</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                {allWarehouses.map((warehouse) => (
+                  <label
+                    key={warehouse.id}
+                    className={clsx(
+                      'flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors',
+                      selectedWarehouses.includes(warehouse.id)
+                        ? 'bg-purple-500/20 border border-purple-500/30'
+                        : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedWarehouses.includes(warehouse.id)}
+                      onChange={() => toggleWarehouse(warehouse.id)}
+                      className="w-4 h-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-purple-400" />
+                      <span className="text-white font-medium">{warehouse.code}</span>
+                      <span className="text-slate-400 text-sm">- {warehouse.name}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setWarehouseUser(null)}
+                className="flex-1"
+              >
+                Anuluj
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveWarehouses}
+                loading={updateWarehousesMutation.isPending}
+                className="flex-1"
+              >
+                Zapisz
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -410,6 +520,17 @@ export default function UsersPage() {
                       )}
                     </div>
                     <div className="text-sm text-slate-400">{user.username}</div>
+                    {/* Assigned warehouses */}
+                    {(user as any).warehouses && (user as any).warehouses.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <Building2 className="w-3 h-3 text-purple-400" />
+                        {(user as any).warehouses.map((w: any, idx: number) => (
+                          <span key={w.id} className="text-xs text-purple-400">
+                            {w.code}{idx < (user as any).warehouses.length - 1 ? ',' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className={clsx('flex items-center gap-1 mr-2', role.color)}>
                     {role.icon}
@@ -432,6 +553,13 @@ export default function UsersPage() {
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Hasło</span>
+                  </button>
+                  <button
+                    onClick={() => handleWarehouseAssignment(user)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors text-sm"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Magazyny</span>
                   </button>
                   <button
                     onClick={() => toggleActiveMutation.mutate({ id: user.id, isActive: !user.isActive })}

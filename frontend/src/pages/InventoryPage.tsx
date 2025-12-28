@@ -43,6 +43,11 @@ export default function InventoryPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  // Delete intro inventory state (ADMIN only)
+  const [deleteIntroConfirm, setDeleteIntroConfirm] = useState<{ id: string; name: string; linesCount: number; status: string } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteConfirmCheckbox, setDeleteConfirmCheckbox] = useState(false);
+
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
     queryFn: () => warehousesService.getWarehouses({ limit: 100 }),
@@ -121,6 +126,21 @@ export default function InventoryPage() {
     },
   });
 
+  // Delete intro inventory mutation (ADMIN only)
+  const deleteIntroMutation = useMutation({
+    mutationFn: inventoryIntroService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-intro-list'] });
+      toast.success('Inwentaryzacja zostala usunieta');
+      setDeleteIntroConfirm(null);
+      setDeleteConfirmText('');
+      setDeleteConfirmCheckbox(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Blad usuwania');
+    },
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInventory.name || !newInventory.warehouseId) {
@@ -189,6 +209,25 @@ export default function InventoryPage() {
   const handleConfirmDelete = () => {
     if (deleteConfirm) {
       deleteMutation.mutate(deleteConfirm.id);
+    }
+  };
+
+  // Handle delete intro inventory
+  const handleDeleteIntro = (e: React.MouseEvent, inv: { id: string; name: string; _count?: { lines: number }; status: string }) => {
+    e.stopPropagation();
+    setDeleteIntroConfirm({
+      id: inv.id,
+      name: inv.name,
+      linesCount: inv._count?.lines || 0,
+      status: inv.status,
+    });
+    setDeleteConfirmText('');
+    setDeleteConfirmCheckbox(false);
+  };
+
+  const handleConfirmDeleteIntro = () => {
+    if (deleteIntroConfirm && deleteConfirmCheckbox && deleteConfirmText.toLowerCase() === 'potwierdzam') {
+      deleteIntroMutation.mutate(deleteIntroConfirm.id);
     }
   };
 
@@ -438,6 +477,88 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* Delete Intro Inventory Confirmation Modal (ADMIN only - BIG WARNING) */}
+      {deleteIntroConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-6 w-full max-w-md animate-fade-in border-2 border-red-500/50">
+            {/* Big warning header */}
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Trash2 className="w-10 h-10 text-red-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-red-500 mb-2">UWAGA!</h3>
+              <p className="text-lg text-white">Czy na pewno chcesz usunac inwentaryzacje?</p>
+            </div>
+
+            {/* Inventory details */}
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-4">
+              <div className="text-white font-medium text-lg mb-2">"{deleteIntroConfirm.name}"</div>
+              <div className="text-slate-400 text-sm">
+                <span className="text-red-400 font-medium">{deleteIntroConfirm.linesCount} produktow</span> zostanie usunietych
+              </div>
+              {deleteIntroConfirm.status === 'COMPLETED' && (
+                <div className="text-yellow-400 text-sm mt-2 font-medium">
+                  Ta inwentaryzacja jest ZAKONCZONA - produkty i stany magazynowe tez zostana usuniete!
+                </div>
+              )}
+            </div>
+
+            {/* Confirmation checkbox */}
+            <label className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10 mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={deleteConfirmCheckbox}
+                onChange={(e) => setDeleteConfirmCheckbox(e.target.checked)}
+                className="w-5 h-5 mt-0.5 rounded border-red-500/50 bg-white/10 text-red-500 focus:ring-red-500"
+              />
+              <span className="text-white">
+                Rozumiem, ze ta operacja jest <span className="text-red-400 font-bold">NIEODWRACALNA</span> i wszystkie dane zostana trwale usuniete
+              </span>
+            </label>
+
+            {/* Confirmation text input */}
+            <div className="mb-4">
+              <label className="block text-sm text-slate-400 mb-2">
+                Wpisz <span className="text-red-400 font-bold">"potwierdzam"</span> aby usunac:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="potwierdzam"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-red-500/30 text-white placeholder-slate-500 focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setDeleteIntroConfirm(null);
+                  setDeleteConfirmText('');
+                  setDeleteConfirmCheckbox(false);
+                }}
+                className="flex-1"
+              >
+                Anuluj
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleConfirmDeleteIntro}
+                loading={deleteIntroMutation.isPending}
+                disabled={!deleteConfirmCheckbox || deleteConfirmText.toLowerCase() !== 'potwierdzam'}
+                className="flex-1"
+              >
+                USUN INWENTARYZACJE
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="mb-4">
         <select
@@ -576,9 +697,21 @@ export default function InventoryPage() {
                       )}
                       <div className="font-medium text-white">{inv.name}</div>
                     </div>
-                    <div className={clsx('flex items-center gap-1', status.color)}>
-                      {status.icon}
-                      <span className="text-xs">{status.label}</span>
+                    <div className="flex items-center gap-2">
+                      {/* Delete button for ADMIN */}
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => handleDeleteIntro(e, inv)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          title="Usun inwentaryzacje"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <div className={clsx('flex items-center gap-1', status.color)}>
+                        {status.icon}
+                        <span className="text-xs">{status.label}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm">

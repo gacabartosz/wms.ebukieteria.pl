@@ -93,6 +93,16 @@ export const inventoryIntroController = {
     }
   },
 
+  // DELETE - Usuń całą inwentaryzację (tylko ADMIN)
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await inventoryIntroService.delete(req.params.id, req.user!.id);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getSummary(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await inventoryIntroService.getSummary(req.params.id);

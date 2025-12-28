@@ -269,3 +269,29 @@ export const getAllProductsForExport = async () => {
     orderBy: { sku: 'asc' },
   });
 };
+
+// Quick search for autocomplete - max 10 results
+export const searchProductsAutocomplete = async (query: string) => {
+  if (!query || query.length < 2) return [];
+
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { sku: { contains: query, mode: 'insensitive' } },
+        { ean: { contains: query } },
+      ],
+    },
+    select: {
+      id: true,
+      sku: true,
+      ean: true,
+      name: true,
+    },
+    take: 10,
+    orderBy: { name: 'asc' },
+  });
+
+  return products;
+};
