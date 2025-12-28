@@ -14,7 +14,6 @@ import {
   User,
   X,
   FileSpreadsheet,
-  Download,
   FileText,
 } from 'lucide-react';
 
@@ -206,31 +205,6 @@ export default function InventoryIntroDetailPage() {
     }
   };
 
-  // Export to CSV
-  const handleExportCSV = async () => {
-    if (!id) return;
-    setExporting(true);
-    try {
-      const response = await api.post('/inventory-intro/export/csv',
-        { inventoryIds: [id], vatRate: 23 },
-        { responseType: 'blob' }
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `inwentaryzacja_${id}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success('Pobrano plik CSV');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Blad eksportu');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   // Export to PDF with images
   const handleExportPDF = async () => {
     if (!id) return;
@@ -412,28 +386,52 @@ export default function InventoryIntroDetailPage() {
     <Layout
       title={inventory.name}
       actions={
-        isInProgress && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => cancelMutation.mutate()}
-              loading={cancelMutation.isPending}
-            >
-              Anuluj
-            </Button>
-            {/* Only ADMIN can complete */}
-            {isAdmin && (
+        <div className="flex gap-1">
+          {/* Export buttons - icons only for compact header */}
+          {inventory.lines.length > 0 && (
+            <>
+              <button
+                onClick={handleExportExcel}
+                disabled={exporting}
+                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-green-400 transition-colors disabled:opacity-50"
+                title="Excel (XLS)"
+              >
+                <FileSpreadsheet className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                title="PDF ze zdjeciami"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+            </>
+          )}
+          {/* Cancel/Complete - only in progress */}
+          {isInProgress && (
+            <>
               <Button
                 size="sm"
-                onClick={() => setShowCompleteModal(true)}
-                disabled={inventory.lines.length === 0}
+                variant="secondary"
+                onClick={() => cancelMutation.mutate()}
+                loading={cancelMutation.isPending}
               >
-                Zakoncz
+                Anuluj
               </Button>
-            )}
-          </div>
-        )
+              {/* Only ADMIN can complete */}
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowCompleteModal(true)}
+                  disabled={inventory.lines.length === 0}
+                >
+                  Zakoncz
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       }
     >
       {/* Header info */}
@@ -448,42 +446,6 @@ export default function InventoryIntroDetailPage() {
           <span className="text-slate-400">produktow</span>
         </div>
       </div>
-
-      {/* Export section - widoczna sekcja eksportu */}
-      {inventory.lines.length > 0 && (
-        <div className="glass-card p-4 mb-4">
-          <h3 className="text-sm font-medium text-slate-400 mb-3">Eksportuj inwentaryzacje:</h3>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleExportExcel}
-              loading={exporting}
-              icon={<FileSpreadsheet className="w-4 h-4" />}
-            >
-              Excel (XLS)
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleExportCSV}
-              loading={exporting}
-              icon={<Download className="w-4 h-4" />}
-            >
-              CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleExportPDF}
-              loading={exporting}
-              icon={<FileText className="w-4 h-4" />}
-            >
-              PDF ze zdjeciami
-            </Button>
-          </div>
-        </div>
-      )}
 
       {isInProgress && (
         <form onSubmit={handleSubmit} className="pb-28 sm:pb-4">
