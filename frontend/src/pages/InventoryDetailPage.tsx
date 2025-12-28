@@ -488,7 +488,7 @@ export default function InventoryDetailPage() {
       </div>
 
       {/* Scan input */}
-      <form onSubmit={handleSubmit} className="mb-6">
+      <form onSubmit={handleSubmit} className="mb-6 relative z-20">
         <div className={clsx(
           'glass-card p-6 transition-all',
           step === 'scan-location' && 'ring-2 ring-primary-500/50',
@@ -552,7 +552,7 @@ export default function InventoryDetailPage() {
 
             {/* Product search autocomplete dropdown */}
             {showSearchDropdown && searchResults && searchResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-2 rounded-xl bg-slate-800 border border-white/20 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="absolute z-[100] w-full mt-2 rounded-xl bg-slate-800 border border-white/20 shadow-2xl overflow-hidden max-h-72 overflow-y-auto">
                 <div className="px-3 py-2 bg-slate-700/50 text-xs text-slate-400 flex items-center gap-2">
                   <Search className="w-3 h-3" />
                   Znalezione produkty ({searchResults.length})

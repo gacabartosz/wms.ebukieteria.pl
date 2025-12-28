@@ -693,7 +693,7 @@ export default function InventoryIntroDetailPage() {
           </div>{/* End of glass-card */}
 
           {/* Submit button - fixed on mobile */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent sm:hidden z-50">
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent sm:hidden z-50 safe-area-bottom">
             <Button
               type="submit"
               className="w-full py-5 text-xl font-bold"
@@ -703,15 +703,12 @@ export default function InventoryIntroDetailPage() {
               ZAPISZ PRODUKT
             </Button>
           </div>
-
-          {/* Spacer for fixed button on mobile */}
-          <div className="h-24 sm:hidden" />
         </form>
       )}
 
       {/* Added products list */}
       {inventory.lines.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 pb-28 sm:pb-4">
           <h3 className="text-sm font-medium text-slate-400 mb-3">
             Ostatnio dodane ({inventory.lines.length}):
           </h3>
