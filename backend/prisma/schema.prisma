@@ -449,6 +449,7 @@ model InventoryIntroLine {
   unit             String         @default("szt") // szt, kg, opak
   ean              String?        // opcjonalne
   vatRate          Int            @default(23) // Stawka VAT: 8 lub 23
+  divider          Decimal        @default(2) @db.Decimal(4, 2) // Podzielnik marży (1.5, 2, 2.5, 3)
 
   // Auto-generowane
   tempSku          String         // INV-20251227-0001

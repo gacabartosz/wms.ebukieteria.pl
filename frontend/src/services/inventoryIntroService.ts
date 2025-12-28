@@ -11,6 +11,7 @@ export interface InventoryIntroLine {
   tempName: string;
   productId?: string;
   vatRate: number;
+  divider: number;
   createdBy?: { id: string; name: string };
   createdAt: string;
   updatedBy?: { id: string; name: string };
@@ -118,6 +119,7 @@ export const inventoryIntroService = {
       name?: string;
       ean?: string;
       vatRate?: number;
+      divider?: number;
     }
   ): Promise<InventoryIntroLine> => {
     const response = await api.patch(`/inventory-intro/${id}/lines/${lineId}`, data);

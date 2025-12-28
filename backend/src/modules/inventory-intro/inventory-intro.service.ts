@@ -183,7 +183,7 @@ export const inventoryIntroService = {
     });
   },
 
-  // UPDATE LINE - Edytuj pozycję (ilość, cenę, nazwę, ean, vatRate)
+  // UPDATE LINE - Edytuj pozycję (ilość, cenę, nazwę, ean, vatRate, divider)
   async updateLine(
     introId: string,
     lineId: string,
@@ -193,6 +193,7 @@ export const inventoryIntroService = {
       name?: string;
       ean?: string;
       vatRate?: number;
+      divider?: number;
     },
     userId?: string
   ) {
@@ -254,6 +255,13 @@ export const inventoryIntroService = {
       if (existingLine && existingLine.vatRate !== data.vatRate) {
         changes.push(`VAT: ${existingLine.vatRate}% → ${data.vatRate}%`);
         updateData.vatRate = data.vatRate;
+      }
+    }
+    // Manualna zmiana podzielnika (ADMIN panel)
+    if (data.divider !== undefined && data.divider > 0) {
+      if (existingLine && Number(existingLine.divider) !== data.divider) {
+        changes.push(`Podzielnik: /${existingLine.divider} → /${data.divider}`);
+        updateData.divider = data.divider;
       }
     }
 

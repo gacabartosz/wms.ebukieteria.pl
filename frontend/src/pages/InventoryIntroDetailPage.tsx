@@ -274,15 +274,21 @@ export default function InventoryIntroDetailPage() {
     updateLineMutation.mutate({ lineId, vatRate });
   };
 
+  // ADMIN: Zmiana podzielnika produktu
+  const handleDividerChange = (lineId: string, divider: number) => {
+    updateLineMutation.mutate({ lineId, divider });
+  };
+
   // Update line mutation
   const updateLineMutation = useMutation({
-    mutationFn: (data: { lineId: string; quantity?: number; priceBrutto?: number; name?: string; ean?: string; vatRate?: number }) =>
+    mutationFn: (data: { lineId: string; quantity?: number; priceBrutto?: number; name?: string; ean?: string; vatRate?: number; divider?: number }) =>
       inventoryIntroService.updateLine(id!, data.lineId, {
         quantity: data.quantity,
         priceBrutto: data.priceBrutto,
         name: data.name,
         ean: data.ean,
         vatRate: data.vatRate,
+        divider: data.divider,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-intro', id] });
@@ -643,13 +649,14 @@ export default function InventoryIntroDetailPage() {
                         <th className="px-3 py-2 text-left text-slate-400 font-medium">Nazwa</th>
                         <th className="px-3 py-2 text-right text-slate-400 font-medium">Brutto</th>
                         <th className="px-3 py-2 text-center text-slate-400 font-medium">VAT</th>
+                        <th className="px-3 py-2 text-center text-slate-400 font-medium">Podzielnik</th>
                         <th className="px-3 py-2 text-right text-slate-400 font-medium">Netto zakupu</th>
                       </tr>
                     </thead>
                     <tbody>
                       {inventory.lines.map((line, idx) => {
                         const brutto = Number(line.priceBrutto);
-                        const netto = brutto / (1 + line.vatRate / 100) / exportDivider;
+                        const netto = brutto / (1 + line.vatRate / 100) / Number(line.divider);
                         return (
                           <tr key={line.id} className="border-b border-white/5 hover:bg-white/5">
                             <td className="px-3 py-2 text-slate-300">{idx + 1}</td>
@@ -668,6 +675,18 @@ export default function InventoryIntroDetailPage() {
                               >
                                 <option value="8">8%</option>
                                 <option value="23">23%</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-2">
+                              <select
+                                value={Number(line.divider)}
+                                onChange={(e) => handleDividerChange(line.id, Number(e.target.value))}
+                                className="px-2 py-1 rounded text-sm font-bold border cursor-pointer bg-blue-500/20 text-blue-400 border-blue-500/30"
+                              >
+                                <option value="1.5">/1.5</option>
+                                <option value="2">/2</option>
+                                <option value="2.5">/2.5</option>
+                                <option value="3">/3</option>
                               </select>
                             </td>
                             <td className="px-3 py-2 text-right text-green-400 font-medium">{netto.toFixed(2)} zł</td>
