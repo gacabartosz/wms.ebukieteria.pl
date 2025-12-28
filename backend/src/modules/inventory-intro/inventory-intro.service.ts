@@ -505,13 +505,13 @@ export const inventoryIntroService = {
     return user.assignedWarehouses.map(uw => uw.warehouse);
   },
 
-  // EXPORT - Eksportuj wybrane inwentaryzacje do XLS/CSV
+  // EXPORT - Eksportuj wybrane inwentaryzacje do XLS/CSV (także w trakcie)
   async exportToExcel(inventoryIds: string[], vatRate: number = 23) {
-    // Pobierz wszystkie wybrane inwentaryzacje z liniami
+    // Pobierz wszystkie wybrane inwentaryzacje z liniami (COMPLETED lub IN_PROGRESS)
     const inventories = await prisma.inventoryIntro.findMany({
       where: {
         id: { in: inventoryIds },
-        status: 'COMPLETED',
+        status: { in: ['COMPLETED', 'IN_PROGRESS'] },
       },
       include: {
         lines: {
@@ -526,7 +526,7 @@ export const inventoryIntroService = {
     });
 
     if (inventories.length === 0) {
-      throw new Error('Nie znaleziono zakończonych inwentaryzacji');
+      throw new Error('Nie znaleziono inwentaryzacji');
     }
 
     // Twórz workbook Excel
@@ -675,7 +675,7 @@ export const inventoryIntroService = {
     const inventories = await prisma.inventoryIntro.findMany({
       where: {
         id: { in: inventoryIds },
-        status: 'COMPLETED',
+        status: { in: ['COMPLETED', 'IN_PROGRESS'] },
       },
       include: {
         lines: true,
@@ -684,7 +684,7 @@ export const inventoryIntroService = {
     });
 
     if (inventories.length === 0) {
-      throw new Error('Nie znaleziono zakończonych inwentaryzacji');
+      throw new Error('Nie znaleziono inwentaryzacji');
     }
 
     const headers = ['Lp', 'Nazwa', 'EAN', 'Ilosc', 'Jednostka', 'Cena_brutto', 'Cena_netto_zakupu'];

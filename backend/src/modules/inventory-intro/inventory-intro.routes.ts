@@ -12,9 +12,9 @@ router.get('/my-warehouses', inventoryIntroController.getUserWarehouses);
 // Domyślny magazyn TAR-KWIACIARNIA
 router.get('/default-warehouse', inventoryIntroController.getDefaultWarehouse);
 
-// Export (tylko ADMIN)
-router.post('/export/excel', requireRole('ADMIN'), inventoryIntroController.exportExcel);
-router.post('/export/csv', requireRole('ADMIN'), inventoryIntroController.exportCSV);
+// Export (dostępny dla wszystkich zalogowanych - także w trakcie inwentaryzacji)
+router.post('/export/excel', inventoryIntroController.exportExcel);
+router.post('/export/csv', inventoryIntroController.exportCSV);
 
 // CRUD
 router.post('/', inventoryIntroController.create);
@@ -27,8 +27,8 @@ router.post('/:id/lines', inventoryIntroController.addLine);
 router.patch('/:id/lines/:lineId', inventoryIntroController.updateLine);
 router.delete('/:id/lines/:lineId', inventoryIntroController.deleteLine);
 
-// Akcje
-router.post('/:id/complete', inventoryIntroController.complete);
+// Akcje (tylko ADMIN może zakończyć)
+router.post('/:id/complete', requireRole('ADMIN'), inventoryIntroController.complete);
 router.post('/:id/cancel', inventoryIntroController.cancel);
 
 // Usuwanie inwentaryzacji (tylko ADMIN)

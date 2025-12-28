@@ -13,6 +13,8 @@ import {
   Edit2,
   User,
   X,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 
 // Lokalny słownik nazw produktów - NIE OBCIĄŻA SYSTEMU (statyczna lista)
@@ -42,9 +44,11 @@ import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
 import { inventoryIntroService, InventoryIntroLine } from '../services/inventoryIntroService';
+import { useAuthStore } from '../store/authStore';
 import { playBeep, playClickBeep } from '../utils/sounds';
 import { compressCameraImage } from '../utils/imageCompression';
 import clsx from 'clsx';
+import api from '../services/api';
 
 export default function InventoryIntroDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -52,6 +56,11 @@ export default function InventoryIntroDetailPage() {
   const queryClient = useQueryClient();
   const priceInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
+
+  // Export state
+  const [exporting, setExporting] = useState(false);
 
   // Form state
   const [imageUrl, setImageUrl] = useState<string>('');
@@ -170,6 +179,56 @@ export default function InventoryIntroDetailPage() {
       toast.error(error.response?.data?.error || 'Blad anulowania');
     },
   });
+
+  // Export to Excel
+  const handleExportExcel = async () => {
+    if (!id) return;
+    setExporting(true);
+    try {
+      const response = await api.post('/inventory-intro/export/excel',
+        { inventoryIds: [id], vatRate: 23 },
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `inwentaryzacja_${id}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Pobrano plik Excel');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Blad eksportu');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Export to CSV
+  const handleExportCSV = async () => {
+    if (!id) return;
+    setExporting(true);
+    try {
+      const response = await api.post('/inventory-intro/export/csv',
+        { inventoryIds: [id], vatRate: 23 },
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `inwentaryzacja_${id}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Pobrano plik CSV');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Blad eksportu');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Update line mutation
   const updateLineMutation = useMutation({
@@ -327,25 +386,54 @@ export default function InventoryIntroDetailPage() {
     <Layout
       title={inventory.name}
       actions={
-        isInProgress && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => cancelMutation.mutate()}
-              loading={cancelMutation.isPending}
-            >
-              Anuluj
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowCompleteModal(true)}
-              disabled={inventory.lines.length === 0}
-            >
-              Zakoncz
-            </Button>
-          </div>
-        )
+        <div className="flex gap-2">
+          {/* Export buttons - always available when there are items */}
+          {inventory.lines.length > 0 && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleExportExcel}
+                loading={exporting}
+                icon={<FileSpreadsheet className="w-4 h-4" />}
+              >
+                XLS
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleExportCSV}
+                loading={exporting}
+                icon={<Download className="w-4 h-4" />}
+              >
+                CSV
+              </Button>
+            </>
+          )}
+          {/* Cancel/Complete - only in progress */}
+          {isInProgress && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => cancelMutation.mutate()}
+                loading={cancelMutation.isPending}
+              >
+                Anuluj
+              </Button>
+              {/* Only ADMIN can complete */}
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowCompleteModal(true)}
+                  disabled={inventory.lines.length === 0}
+                >
+                  Zakoncz
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       }
     >
       {/* Header info */}
