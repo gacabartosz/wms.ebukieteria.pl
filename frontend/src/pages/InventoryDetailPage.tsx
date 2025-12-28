@@ -79,15 +79,6 @@ export default function InventoryDetailPage() {
     setShowSearchDropdown(false);
   }, []);
 
-  // Handle selecting product from autocomplete dropdown
-  const handleSelectProduct = useCallback(async (product: { id: string; sku: string; ean: string | null; name: string }) => {
-    setShowSearchDropdown(false);
-    setInputValue('');
-
-    // Process as if scanned by EAN or SKU
-    const code = product.ean || product.sku;
-    await handleProductScan(code);
-  }, []);
 
   // Save pending product to backend
   const savePendingProduct = useCallback(async () => {
@@ -178,6 +169,44 @@ export default function InventoryDetailPage() {
       navigate('/inventory');
     },
   });
+
+  // Handle selecting product from autocomplete dropdown
+  const handleSelectProduct = async (product: { id: string; sku: string; ean: string | null; name: string }) => {
+    setShowSearchDropdown(false);
+    setInputValue('');
+
+    // If there's a pending product, save it first
+    if (pendingProduct && currentLocation) {
+      try {
+        await addLineMutation.mutateAsync({
+          locationBarcode: currentLocation.barcode,
+          productCode: pendingProduct.code,
+          countedQty: pendingQty,
+        });
+        setScannedProducts(prev => [...prev, {
+          code: pendingProduct.code,
+          sku: pendingProduct.sku,
+          name: pendingProduct.name,
+          qty: pendingQty,
+        }]);
+      } catch {
+        // Error handled in mutation
+      }
+    }
+
+    // Set selected product as pending (we already have all info from autocomplete)
+    setPendingProduct({
+      code: product.ean || product.sku,
+      sku: product.sku,
+      name: product.name,
+      productId: product.id,
+    });
+    setPendingQty(1);
+
+    // Focus on quantity input
+    setTimeout(() => qtyInputRef.current?.focus(), 100);
+    playBeep('success');
+  };
 
   // Handle location scan
   const handleLocationScan = async (barcode: string) => {
