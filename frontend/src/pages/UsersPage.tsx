@@ -233,10 +233,10 @@ export default function UsersPage() {
             placeholder="Jan Kowalski"
           />
           <Input
-            label="Numer telefonu"
+            label="Login"
             value={newUser.phone}
             onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-            placeholder="+48123456789"
+            placeholder="np. Jan lub 123456789"
           />
           <Input
             label="Hasło"

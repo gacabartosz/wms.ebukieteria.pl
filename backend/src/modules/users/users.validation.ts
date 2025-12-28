@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const createUserSchema = z.object({
-  phone: z.string().min(9).max(15).regex(/^\+?\d+$/),  // Allow optional + at start
+  phone: z.string().min(3).max(50),  // Login - can be phone or any username
   password: z.string().min(6),
   name: z.string().min(1),
   role: z.enum(['ADMIN', 'MANAGER', 'WAREHOUSE']).optional(),
