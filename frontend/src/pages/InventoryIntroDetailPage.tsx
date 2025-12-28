@@ -15,6 +15,7 @@ import {
   X,
   FileSpreadsheet,
   Download,
+  FileText,
 } from 'lucide-react';
 
 // Lokalny słownik nazw produktów - NIE OBCIĄŻA SYSTEMU (statyczna lista)
@@ -230,6 +231,31 @@ export default function InventoryIntroDetailPage() {
     }
   };
 
+  // Export to PDF with images
+  const handleExportPDF = async () => {
+    if (!id) return;
+    setExporting(true);
+    try {
+      const response = await api.post('/inventory-intro/export/pdf',
+        { inventoryIds: [id], vatRate: 23 },
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `inwentaryzacja_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Pobrano plik PDF ze zdjeciami');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Blad eksportu PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Update line mutation
   const updateLineMutation = useMutation({
     mutationFn: (data: { lineId: string; quantity?: number; priceBrutto?: number; name?: string; ean?: string }) =>
@@ -386,54 +412,28 @@ export default function InventoryIntroDetailPage() {
     <Layout
       title={inventory.name}
       actions={
-        <div className="flex gap-2">
-          {/* Export buttons - always available when there are items */}
-          {inventory.lines.length > 0 && (
-            <>
+        isInProgress && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => cancelMutation.mutate()}
+              loading={cancelMutation.isPending}
+            >
+              Anuluj
+            </Button>
+            {/* Only ADMIN can complete */}
+            {isAdmin && (
               <Button
                 size="sm"
-                variant="secondary"
-                onClick={handleExportExcel}
-                loading={exporting}
-                icon={<FileSpreadsheet className="w-4 h-4" />}
+                onClick={() => setShowCompleteModal(true)}
+                disabled={inventory.lines.length === 0}
               >
-                XLS
+                Zakoncz
               </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleExportCSV}
-                loading={exporting}
-                icon={<Download className="w-4 h-4" />}
-              >
-                CSV
-              </Button>
-            </>
-          )}
-          {/* Cancel/Complete - only in progress */}
-          {isInProgress && (
-            <>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => cancelMutation.mutate()}
-                loading={cancelMutation.isPending}
-              >
-                Anuluj
-              </Button>
-              {/* Only ADMIN can complete */}
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  onClick={() => setShowCompleteModal(true)}
-                  disabled={inventory.lines.length === 0}
-                >
-                  Zakoncz
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )
       }
     >
       {/* Header info */}
@@ -448,6 +448,42 @@ export default function InventoryIntroDetailPage() {
           <span className="text-slate-400">produktow</span>
         </div>
       </div>
+
+      {/* Export section - widoczna sekcja eksportu */}
+      {inventory.lines.length > 0 && (
+        <div className="glass-card p-4 mb-4">
+          <h3 className="text-sm font-medium text-slate-400 mb-3">Eksportuj inwentaryzacje:</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportExcel}
+              loading={exporting}
+              icon={<FileSpreadsheet className="w-4 h-4" />}
+            >
+              Excel (XLS)
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportCSV}
+              loading={exporting}
+              icon={<Download className="w-4 h-4" />}
+            >
+              CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportPDF}
+              loading={exporting}
+              icon={<FileText className="w-4 h-4" />}
+            >
+              PDF ze zdjeciami
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isInProgress && (
         <form onSubmit={handleSubmit} className="pb-28 sm:pb-4">

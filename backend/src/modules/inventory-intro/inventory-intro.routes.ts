@@ -15,6 +15,7 @@ router.get('/default-warehouse', inventoryIntroController.getDefaultWarehouse);
 // Export (dostępny dla wszystkich zalogowanych - także w trakcie inwentaryzacji)
 router.post('/export/excel', inventoryIntroController.exportExcel);
 router.post('/export/csv', inventoryIntroController.exportCSV);
+router.post('/export/pdf', inventoryIntroController.exportPDF);
 
 // CRUD
 router.post('/', inventoryIntroController.create);

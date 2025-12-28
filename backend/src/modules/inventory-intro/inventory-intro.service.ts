@@ -1,6 +1,7 @@
 import prisma from '../../config/database.js';
 import { Decimal } from '@prisma/client/runtime/library';
 import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 
 // ============================================
 // HELPERS
@@ -710,5 +711,117 @@ export const inventoryIntroService = {
     }
 
     return rows.join('\n');
+  },
+
+  // EXPORT PDF ze zdjęciami
+  async exportToPDF(inventoryIds: string[], vatRate: number = 23): Promise<PDFKit.PDFDocument> {
+    const inventories = await prisma.inventoryIntro.findMany({
+      where: {
+        id: { in: inventoryIds },
+        status: { in: ['COMPLETED', 'IN_PROGRESS'] },
+      },
+      include: {
+        lines: {
+          include: {
+            createdBy: { select: { name: true } },
+          },
+        },
+        warehouse: true,
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (inventories.length === 0) {
+      throw new Error('Nie znaleziono inwentaryzacji');
+    }
+
+    // Twórz dokument PDF
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 40,
+      bufferPages: true,
+    });
+
+    // Nagłówek
+    doc.fontSize(20).font('Helvetica-Bold').text('INWENTARYZACJA', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').text(
+      `Data eksportu: ${new Date().toLocaleDateString('pl-PL')} ${new Date().toLocaleTimeString('pl-PL')}`,
+      { align: 'center' }
+    );
+    doc.moveDown(1);
+
+    let totalBrutto = 0;
+    let totalNettoZakupu = 0;
+    let lp = 1;
+
+    for (const inventory of inventories) {
+      // Info o inwentaryzacji
+      doc.fontSize(12).font('Helvetica-Bold').text(`${inventory.name}`, { underline: true });
+      doc.fontSize(9).font('Helvetica').text(`Magazyn: ${inventory.warehouse?.name || '-'} | Status: ${inventory.status}`);
+      doc.moveDown(0.5);
+
+      for (const line of inventory.lines) {
+        const priceBrutto = Number(line.priceBrutto);
+        const priceNetto = priceBrutto / (1 + vatRate / 100);
+        const priceNettoZakupu = priceNetto / 2;
+
+        totalBrutto += priceBrutto * line.quantity;
+        totalNettoZakupu += priceNettoZakupu * line.quantity;
+
+        // Sprawdź czy zmieści się na stronie (zdjęcie + tekst ~120px)
+        if (doc.y > 680) {
+          doc.addPage();
+        }
+
+        const startY = doc.y;
+
+        // Zdjęcie po lewej (jeśli jest base64)
+        if (line.imageUrl && line.imageUrl.startsWith('data:image')) {
+          try {
+            doc.image(line.imageUrl, 40, startY, { width: 80, height: 80, fit: [80, 80] });
+          } catch (e) {
+            // Jeśli błąd - pokaż placeholder
+            doc.rect(40, startY, 80, 80).stroke();
+            doc.fontSize(8).text('Brak', 60, startY + 35);
+          }
+        } else {
+          // Placeholder dla braku zdjęcia
+          doc.rect(40, startY, 80, 80).stroke();
+          doc.fontSize(8).text('Brak zdjecia', 50, startY + 35);
+        }
+
+        // Dane po prawej od zdjęcia
+        const textX = 130;
+        doc.fontSize(11).font('Helvetica-Bold').text(`${lp}. ${line.tempName}`, textX, startY);
+        doc.fontSize(9).font('Helvetica');
+        doc.text(`EAN: ${line.ean || '-'}`, textX, startY + 16);
+        doc.text(`Ilosc: ${line.quantity} ${line.unit}`, textX, startY + 30);
+        doc.text(`Cena brutto: ${priceBrutto.toFixed(2)} zl`, textX, startY + 44);
+        doc.text(`Cena netto zakupu: ${priceNettoZakupu.toFixed(2)} zl`, textX, startY + 58);
+        if (line.createdBy) {
+          doc.fontSize(8).fillColor('#666666').text(`Dodal: ${line.createdBy.name}`, textX, startY + 72);
+          doc.fillColor('#000000');
+        }
+
+        doc.y = startY + 95;
+        lp++;
+      }
+
+      doc.moveDown(1);
+    }
+
+    // Podsumowanie
+    doc.moveDown(1);
+    doc.fontSize(12).font('Helvetica-Bold');
+    doc.text('PODSUMOWANIE', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(11).font('Helvetica');
+    doc.text(`Liczba produktow: ${lp - 1}`);
+    doc.text(`Wartosc brutto: ${totalBrutto.toFixed(2)} zl`);
+    doc.text(`Wartosc netto zakupu: ${totalNettoZakupu.toFixed(2)} zl`);
+
+    return doc;
   },
 };

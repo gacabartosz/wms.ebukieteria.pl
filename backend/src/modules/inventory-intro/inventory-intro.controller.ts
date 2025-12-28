@@ -173,4 +173,25 @@ export const inventoryIntroController = {
       next(error);
     }
   },
+
+  // Export do PDF ze zdjęciami
+  async exportPDF(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { inventoryIds, vatRate } = req.body;
+
+      if (!inventoryIds || !Array.isArray(inventoryIds) || inventoryIds.length === 0) {
+        return res.status(400).json({ error: 'Wybierz co najmniej jedną inwentaryzację' });
+      }
+
+      const doc = await inventoryIntroService.exportToPDF(inventoryIds, vatRate || 23);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=inwentaryzacja_${Date.now()}.pdf`);
+
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      next(error);
+    }
+  },
 };
