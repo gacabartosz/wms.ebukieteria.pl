@@ -529,14 +529,17 @@ export default function InventoryDetailPage() {
       title={inventory.name}
       actions={
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => cancelMutation.mutate()}
-            loading={cancelMutation.isPending}
-          >
-            Anuluj
-          </Button>
+          {/* Cancel button - ADMIN only */}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => cancelMutation.mutate()}
+              loading={cancelMutation.isPending}
+            >
+              Anuluj
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={handleFinishInventory}
