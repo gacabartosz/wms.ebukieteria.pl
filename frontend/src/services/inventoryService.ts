@@ -6,7 +6,7 @@ export interface InventoryDetail extends InventoryCount {
   lines: Array<{
     id: string;
     location: { id: string; barcode: string; zone: string };
-    product: { id: string; sku: string; name: string; imageUrl?: string; ean?: string; priceBrutto?: number | null };
+    product: { id: string; sku: string; name: string; imageUrl?: string; ean?: string; priceBrutto?: number | null; priceNetto?: number | null };
     systemQty: number;
     countedQty: number;
     countedBy?: { id: string; name: string };

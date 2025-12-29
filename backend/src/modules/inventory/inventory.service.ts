@@ -56,7 +56,7 @@ export const getInventoryCountById = async (id: string) => {
       lines: {
         include: {
           location: { select: { id: true, barcode: true, zone: true } },
-          product: { select: { id: true, sku: true, name: true, imageUrl: true, ean: true, priceBrutto: true } },
+          product: { select: { id: true, sku: true, name: true, imageUrl: true, ean: true, priceBrutto: true, priceNetto: true } },
           countedBy: { select: { id: true, name: true } },
         },
         orderBy: { countedAt: 'desc' },

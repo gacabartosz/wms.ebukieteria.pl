@@ -32,6 +32,7 @@ interface ScannedProduct {
   name: string;
   qty: number;
   priceBrutto: number | null;
+  priceNetto: number | null;
   scannedBy: string;
   scannedAt: Date;
   lineId?: string; // ID linii w bazie (po zapisie)
@@ -43,6 +44,7 @@ interface PendingProduct {
   name: string;
   productId: string;
   priceBrutto: number | null;
+  priceNetto: number | null;
 }
 
 export default function InventoryDetailPage() {
@@ -119,6 +121,7 @@ export default function InventoryDetailPage() {
           name: pendingProduct.name,
           qty: pendingQty,
           priceBrutto: pendingProduct.priceBrutto,
+          priceNetto: pendingProduct.priceNetto,
           scannedBy: user?.name || 'Nieznany',
           scannedAt: new Date(),
           lineId: result?.id,
@@ -244,6 +247,7 @@ export default function InventoryDetailPage() {
         name: product.name,
         productId: product.id,
         priceBrutto: fullProduct.priceBrutto ? Number(fullProduct.priceBrutto) : null,
+        priceNetto: fullProduct.priceNetto ? Number(fullProduct.priceNetto) : null,
       });
       setPendingQty(1);
 
@@ -258,6 +262,7 @@ export default function InventoryDetailPage() {
         name: product.name,
         productId: product.id,
         priceBrutto: null,
+        priceNetto: null,
       });
       setPendingQty(1);
       setTimeout(() => qtyInputRef.current?.focus(), 100);
@@ -364,6 +369,7 @@ export default function InventoryDetailPage() {
         name: productInfo.name,
         productId: productInfo.id,
         priceBrutto: productInfo.priceBrutto ? Number(productInfo.priceBrutto) : null,
+        priceNetto: productInfo.priceNetto ? Number(productInfo.priceNetto) : null,
       });
       setPendingQty(1);
 
@@ -844,7 +850,7 @@ export default function InventoryDetailPage() {
 
       {/* Quick stats */}
       <div className="glass-card p-4 mb-6">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-3 gap-4 text-center mb-4">
           <div>
             <div className="text-2xl font-bold text-white">{completedLocations.length}</div>
             <div className="text-xs text-slate-400">Lokalizacji</div>
@@ -861,6 +867,40 @@ export default function InventoryDetailPage() {
                 scannedProducts.reduce((sum, p) => sum + p.qty, 0)}
             </div>
             <div className="text-xs text-slate-400">Sztuk</div>
+          </div>
+        </div>
+
+        {/* Price summary */}
+        <div className="border-t border-white/10 pt-4 grid grid-cols-2 gap-4">
+          <div className="text-center">
+            <div className="text-lg font-bold text-blue-400">
+              {(
+                (inventory.lines?.reduce((sum, l) => {
+                  const price = l.product.priceNetto ? Number(l.product.priceNetto) : 0;
+                  return sum + (price * l.countedQty);
+                }, 0) || 0) +
+                scannedProducts.reduce((sum, p) => {
+                  const price = p.priceNetto || 0;
+                  return sum + (price * p.qty);
+                }, 0)
+              ).toFixed(2)} zł
+            </div>
+            <div className="text-xs text-slate-400">Wartość zakupu (netto)</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-emerald-400">
+              {(
+                (inventory.lines?.reduce((sum, l) => {
+                  const price = l.product.priceBrutto ? Number(l.product.priceBrutto) : 0;
+                  return sum + (price * l.countedQty);
+                }, 0) || 0) +
+                scannedProducts.reduce((sum, p) => {
+                  const price = p.priceBrutto || 0;
+                  return sum + (price * p.qty);
+                }, 0)
+              ).toFixed(2)} zł
+            </div>
+            <div className="text-xs text-slate-400">Wartość sprzedaży (brutto)</div>
           </div>
         </div>
       </div>
@@ -904,6 +944,7 @@ export default function InventoryDetailPage() {
                         name: line.product.name,
                         qty: line.countedQty,
                         priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
+                        priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
                         scannedBy: line.countedBy?.name || '?',
                         scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
                         lineId: line.id,
@@ -944,6 +985,7 @@ export default function InventoryDetailPage() {
                             name: line.product.name,
                             qty: line.countedQty,
                             priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
+                            priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
                             scannedBy: line.countedBy?.name || '?',
                             scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
                             lineId: line.id,
