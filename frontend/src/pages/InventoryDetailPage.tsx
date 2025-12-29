@@ -8,7 +8,7 @@ import Button from '../components/Button';
 import { inventoryService } from '../services/inventoryService';
 import { containersService } from '../services/containersService';
 import { productsService } from '../services/productsService';
-import { playBeep, playLocationBeep } from '../utils/sounds';
+import { playBeep, playLocationBeep, playClickBeep } from '../utils/sounds';
 import clsx from 'clsx';
 
 // Debounce hook for product search
@@ -645,7 +645,10 @@ export default function InventoryDetailPage() {
                 <div className="flex items-center gap-2 flex-1">
                   <button
                     type="button"
-                    onClick={() => handleQtyChange(pendingQty - 1)}
+                    onClick={() => {
+                      playClickBeep();
+                      handleQtyChange(pendingQty - 1);
+                    }}
                     className="p-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                   >
                     <Minus className="w-5 h-5" />
@@ -661,7 +664,10 @@ export default function InventoryDetailPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => handleQtyChange(pendingQty + 1)}
+                    onClick={() => {
+                      playClickBeep();
+                      handleQtyChange(pendingQty + 1);
+                    }}
                     className="p-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                   >
                     <Plus className="w-5 h-5" />
