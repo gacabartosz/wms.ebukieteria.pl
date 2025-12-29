@@ -6,7 +6,7 @@ export interface InventoryDetail extends InventoryCount {
   lines: Array<{
     id: string;
     location: { id: string; barcode: string; zone: string };
-    product: { id: string; sku: string; name: string; imageUrl?: string };
+    product: { id: string; sku: string; name: string; imageUrl?: string; ean?: string; priceBrutto?: number | null };
     systemQty: number;
     countedQty: number;
     countedBy?: { id: string; name: string };
@@ -94,5 +94,18 @@ export const inventoryService = {
   exportToExcel: async (id: string, name: string): Promise<void> => {
     const filename = `inwentaryzacja-${name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
     await downloadFile(`/inventory/${id}/export`, filename);
+  },
+
+  updateLine: async (
+    inventoryId: string,
+    lineId: string,
+    data: { countedQty: number }
+  ): Promise<any> => {
+    const response = await api.put(`/inventory/${inventoryId}/lines/${lineId}`, data);
+    return response.data;
+  },
+
+  deleteLine: async (inventoryId: string, lineId: string): Promise<void> => {
+    await api.delete(`/inventory/${inventoryId}/lines/${lineId}`);
   },
 };

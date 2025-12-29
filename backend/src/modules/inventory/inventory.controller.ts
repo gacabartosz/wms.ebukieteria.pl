@@ -63,6 +63,34 @@ export const addInventoryLine = async (req: Request, res: Response, next: NextFu
   }
 };
 
+const updateLineSchema = z.object({
+  countedQty: z.number().int().min(0),
+});
+
+export const updateInventoryLine = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = updateLineSchema.parse(req.body);
+    const line = await inventoryService.updateInventoryLine(
+      req.user!.id,
+      req.params.id,
+      req.params.lineId,
+      data
+    );
+    res.json(line);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteInventoryLine = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await inventoryService.deleteInventoryLine(req.user!.id, req.params.id, req.params.lineId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const completeInventoryCount = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await inventoryService.completeInventoryCount(req.user!.id, req.params.id);

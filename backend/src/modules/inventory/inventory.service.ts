@@ -56,7 +56,7 @@ export const getInventoryCountById = async (id: string) => {
       lines: {
         include: {
           location: { select: { id: true, barcode: true, zone: true } },
-          product: { select: { id: true, sku: true, name: true, imageUrl: true } },
+          product: { select: { id: true, sku: true, name: true, imageUrl: true, ean: true, priceBrutto: true } },
           countedBy: { select: { id: true, name: true } },
         },
         orderBy: { countedAt: 'desc' },
@@ -553,4 +553,126 @@ export const deleteInventoryCount = async (id: string) => {
     prisma.inventoryLine.deleteMany({ where: { inventoryCountId: id } }),
     prisma.inventoryCount.delete({ where: { id } }),
   ]);
+};
+
+export const updateInventoryLine = async (
+  userId: string,
+  inventoryId: string,
+  lineId: string,
+  data: { countedQty: number }
+) => {
+  const inventoryCount = await prisma.inventoryCount.findUnique({
+    where: { id: inventoryId },
+  });
+
+  if (!inventoryCount) {
+    throw new AppError('Inwentaryzacja nie istnieje', 404);
+  }
+
+  if (inventoryCount.status !== 'IN_PROGRESS') {
+    throw new AppError('Inwentaryzacja nie jest w trakcie', 400);
+  }
+
+  const line = await prisma.inventoryLine.findUnique({
+    where: { id: lineId },
+    include: {
+      product: { select: { sku: true } },
+      location: { select: { barcode: true } },
+    },
+  });
+
+  if (!line || line.inventoryCountId !== inventoryId) {
+    throw new AppError('Linia nie istnieje', 404);
+  }
+
+  const updatedLine = await prisma.inventoryLine.update({
+    where: { id: lineId },
+    data: {
+      countedQty: data.countedQty,
+      countedByUserId: userId,
+      countedAt: new Date(),
+    },
+    include: {
+      location: { select: { id: true, barcode: true } },
+      product: { select: { id: true, sku: true, name: true, imageUrl: true, priceBrutto: true } },
+      countedBy: { select: { id: true, name: true } },
+    },
+  });
+
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: 'INV_LINE',
+      productId: line.productId,
+      fromLocationId: line.locationId,
+      qty: data.countedQty,
+      metadata: {
+        inventoryId,
+        lineId,
+        systemQty: line.systemQty,
+        countedQty: data.countedQty,
+        difference: data.countedQty - line.systemQty,
+        updated: true,
+      },
+    },
+  });
+
+  return {
+    ...updatedLine,
+    systemQty: line.systemQty,
+    difference: data.countedQty - line.systemQty,
+  };
+};
+
+export const deleteInventoryLine = async (
+  userId: string,
+  inventoryId: string,
+  lineId: string
+) => {
+  const inventoryCount = await prisma.inventoryCount.findUnique({
+    where: { id: inventoryId },
+  });
+
+  if (!inventoryCount) {
+    throw new AppError('Inwentaryzacja nie istnieje', 404);
+  }
+
+  if (inventoryCount.status !== 'IN_PROGRESS') {
+    throw new AppError('Inwentaryzacja nie jest w trakcie', 400);
+  }
+
+  const line = await prisma.inventoryLine.findUnique({
+    where: { id: lineId },
+    include: {
+      product: { select: { sku: true } },
+      location: { select: { barcode: true } },
+    },
+  });
+
+  if (!line || line.inventoryCountId !== inventoryId) {
+    throw new AppError('Linia nie istnieje', 404);
+  }
+
+  await prisma.inventoryLine.delete({
+    where: { id: lineId },
+  });
+
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: 'INV_LINE',
+      productId: line.productId,
+      fromLocationId: line.locationId,
+      qty: 0,
+      metadata: {
+        inventoryId,
+        lineId,
+        deleted: true,
+        productSku: line.product.sku,
+        locationBarcode: line.location.barcode,
+      },
+    },
+  });
 };
