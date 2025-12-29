@@ -44,6 +44,8 @@ export const productsService = {
     ean?: string;
     category?: string;
     isActive?: boolean;
+    priceNetto?: number | null;
+    priceBrutto?: number | null;
   }): Promise<Product> => {
     const response = await api.put(`/products/${id}`, data);
     return response.data;

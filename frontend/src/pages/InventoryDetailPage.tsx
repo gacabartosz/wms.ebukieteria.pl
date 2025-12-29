@@ -36,6 +36,7 @@ interface ScannedProduct {
   scannedBy: string;
   scannedAt: Date;
   lineId?: string; // ID linii w bazie (po zapisie)
+  productId?: string; // ID produktu w bazie
 }
 
 interface PendingProduct {
@@ -76,6 +77,8 @@ export default function InventoryDetailPage() {
   // Edit modal state
   const [editingProduct, setEditingProduct] = useState<ScannedProduct | null>(null);
   const [editQty, setEditQty] = useState<number>(1);
+  const [editPriceNetto, setEditPriceNetto] = useState<string>('');
+  const [editPriceBrutto, setEditPriceBrutto] = useState<string>('');
 
   // Admin panel state
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
@@ -200,6 +203,22 @@ export default function InventoryDetailPage() {
     onError: (error: any) => {
       playBeep('error');
       toast.error(error.response?.data?.error || 'Błąd usuwania');
+    },
+  });
+
+  // Mutation for updating product prices
+  const updateProductPriceMutation = useMutation({
+    mutationFn: (data: { productId: string; priceNetto?: number | null; priceBrutto?: number | null }) =>
+      productsService.updateProduct(data.productId, {
+        priceNetto: data.priceNetto,
+        priceBrutto: data.priceBrutto,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', id] });
+      toast.success('Ceny zaktualizowane');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Błąd aktualizacji cen');
     },
   });
 
@@ -905,7 +924,7 @@ export default function InventoryDetailPage() {
         </div>
       </div>
 
-      {/* Admin Panel - all saved lines from database */}
+      {/* Admin Panel - TABLE VIEW like Excel */}
       {isAdmin && inventory.lines && inventory.lines.length > 0 && (
         <div className="mb-6">
           <button
@@ -925,115 +944,167 @@ export default function InventoryDetailPage() {
           </button>
 
           {showAdminPanel && (
-            <div className="mt-3 space-y-2">
-              <div className="text-xs text-slate-400 mb-2 px-1">
-                Wszystkie zapisane pozycje - kliknij aby edytować
-              </div>
-              {inventory.lines.map((line) => (
-                <div
-                  key={line.id}
-                  className={clsx(
-                    'glass-card p-3 flex items-center gap-3',
-                    isInProgress && 'cursor-pointer hover:bg-white/10 transition-colors'
-                  )}
-                  onClick={() => {
-                    if (isInProgress) {
-                      setEditingProduct({
-                        code: line.product.ean || line.product.sku,
-                        sku: line.product.sku,
-                        name: line.product.name,
-                        qty: line.countedQty,
-                        priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
-                        priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
-                        scannedBy: line.countedBy?.name || '?',
-                        scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
-                        lineId: line.id,
-                      });
-                      setEditQty(line.countedQty);
-                    }
-                  }}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
-                    <span className="text-primary-400 font-bold">{line.countedQty}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono font-medium text-white">{line.product.sku}</div>
-                    <div className="text-sm text-slate-400 truncate">{line.product.name}</div>
-                    <div className="flex flex-col gap-0.5 mt-1 text-xs text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-600">{line.location.barcode}</span>
-                        {line.product.priceBrutto && (
-                          <span className="text-emerald-400">{Number(line.product.priceBrutto).toFixed(2)} zł</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        <span>{line.countedBy?.name || '?'}</span>
-                        <span>•</span>
-                        <span>{line.countedAt ? format(new Date(line.countedAt), 'dd.MM HH:mm', { locale: pl }) : ''}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {isInProgress && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingProduct({
-                            code: line.product.ean || line.product.sku,
-                            sku: line.product.sku,
-                            name: line.product.name,
-                            qty: line.countedQty,
-                            priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
-                            priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
-                            scannedBy: line.countedBy?.name || '?',
-                            scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
-                            lineId: line.id,
-                          });
-                          setEditQty(line.countedQty);
-                        }}
-                        className="p-2 rounded-lg text-slate-400 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Czy na pewno usunąć tę pozycję?')) {
-                            deleteLineMutation.mutate(line.id);
-                          }
-                        }}
-                        disabled={deleteLineMutation.isPending}
-                        className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="mt-3">
+              {/* Table container with horizontal scroll */}
+              <div className="glass-card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left">
+                      <th className="px-2 py-3 text-slate-400 font-medium">Lp</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium">SKU</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium min-w-[150px]">Nazwa</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium text-center">Ilość</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium text-right">Netto</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium text-right">Brutto</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium text-right">Wart. netto</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium text-right">Wart. brutto</th>
+                      <th className="px-2 py-3 text-slate-400 font-medium">Kto</th>
+                      {isInProgress && <th className="px-2 py-3 text-slate-400 font-medium text-center">Akcje</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.lines.map((line, index) => {
+                      const priceNetto = line.product.priceNetto ? Number(line.product.priceNetto) : 0;
+                      const priceBrutto = line.product.priceBrutto ? Number(line.product.priceBrutto) : 0;
+                      const valueNetto = priceNetto * line.countedQty;
+                      const valueBrutto = priceBrutto * line.countedQty;
 
-              {/* Summary - total value */}
-              <div className="glass-card p-4 mt-4">
-                <div className="text-sm text-slate-400 mb-2">Podsumowanie wartości</div>
-                <div className="text-2xl font-bold text-emerald-400">
-                  {inventory.lines.reduce((sum, line) => {
-                    const price = line.product.priceBrutto ? Number(line.product.priceBrutto) : 0;
-                    return sum + (price * line.countedQty);
-                  }, 0).toFixed(2)} zł
-                </div>
+                      return (
+                        <tr
+                          key={line.id}
+                          className={clsx(
+                            'border-b border-white/5 hover:bg-white/5 transition-colors',
+                            isInProgress && 'cursor-pointer'
+                          )}
+                          onClick={() => {
+                            if (isInProgress) {
+                              setEditingProduct({
+                                code: line.product.ean || line.product.sku,
+                                sku: line.product.sku,
+                                name: line.product.name,
+                                qty: line.countedQty,
+                                priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
+                                priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
+                                scannedBy: line.countedBy?.name || '?',
+                                scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
+                                lineId: line.id,
+                                productId: line.product.id,
+                              });
+                              setEditQty(line.countedQty);
+                              setEditPriceNetto(line.product.priceNetto ? String(Number(line.product.priceNetto)) : '');
+                              setEditPriceBrutto(line.product.priceBrutto ? String(Number(line.product.priceBrutto)) : '');
+                            }
+                          }}
+                        >
+                          <td className="px-2 py-2 text-slate-500">{index + 1}</td>
+                          <td className="px-2 py-2 text-white font-mono text-xs">{line.product.sku}</td>
+                          <td className="px-2 py-2 text-slate-300 truncate max-w-[200px]" title={line.product.name}>
+                            {line.product.name}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <span className="bg-primary-500/20 text-primary-400 font-bold px-2 py-1 rounded">
+                              {line.countedQty}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2 text-right text-blue-400">
+                            {priceNetto > 0 ? `${priceNetto.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-2 py-2 text-right text-emerald-400">
+                            {priceBrutto > 0 ? `${priceBrutto.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-2 py-2 text-right text-blue-300">
+                            {valueNetto > 0 ? `${valueNetto.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-2 py-2 text-right text-emerald-300">
+                            {valueBrutto > 0 ? `${valueBrutto.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-2 py-2 text-slate-500 text-xs">
+                            {line.countedBy?.name || '?'}
+                          </td>
+                          {isInProgress && (
+                            <td className="px-2 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingProduct({
+                                      code: line.product.ean || line.product.sku,
+                                      sku: line.product.sku,
+                                      name: line.product.name,
+                                      qty: line.countedQty,
+                                      priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
+                                      priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
+                                      scannedBy: line.countedBy?.name || '?',
+                                      scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
+                                      lineId: line.id,
+                                      productId: line.product.id,
+                                    });
+                                    setEditQty(line.countedQty);
+                                    setEditPriceNetto(line.product.priceNetto ? String(Number(line.product.priceNetto)) : '');
+                                    setEditPriceBrutto(line.product.priceBrutto ? String(Number(line.product.priceBrutto)) : '');
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-primary-400 hover:bg-primary-500/10"
+                                  title="Edytuj"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Czy na pewno usunąć tę pozycję?')) {
+                                      deleteLineMutation.mutate(line.id);
+                                    }
+                                  }}
+                                  disabled={deleteLineMutation.isPending}
+                                  className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                                  title="Usuń"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {/* Summary footer */}
+                  <tfoot>
+                    <tr className="border-t-2 border-white/20 bg-white/5 font-bold">
+                      <td className="px-2 py-3 text-slate-400" colSpan={3}>SUMA:</td>
+                      <td className="px-2 py-3 text-center text-white">
+                        {inventory.lines.reduce((sum, l) => sum + l.countedQty, 0)}
+                      </td>
+                      <td className="px-2 py-3"></td>
+                      <td className="px-2 py-3"></td>
+                      <td className="px-2 py-3 text-right text-blue-400">
+                        {inventory.lines.reduce((sum, l) => {
+                          const price = l.product.priceNetto ? Number(l.product.priceNetto) : 0;
+                          return sum + (price * l.countedQty);
+                        }, 0).toFixed(2)} zł
+                      </td>
+                      <td className="px-2 py-3 text-right text-emerald-400">
+                        {inventory.lines.reduce((sum, l) => {
+                          const price = l.product.priceBrutto ? Number(l.product.priceBrutto) : 0;
+                          return sum + (price * l.countedQty);
+                        }, 0).toFixed(2)} zł
+                      </td>
+                      <td className="px-2 py-3" colSpan={isInProgress ? 2 : 1}></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal - with price editing */}
       {editingProduct && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="glass-card p-6 w-full max-w-md">
+          <div className="glass-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-white">Edycja ilości</h3>
+              <h3 className="text-lg font-bold text-white">Edycja pozycji</h3>
               <button
                 onClick={() => setEditingProduct(null)}
                 className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -1043,17 +1114,13 @@ export default function InventoryDetailPage() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <div className="text-sm text-slate-400 mb-1">Produkt</div>
+              {/* Product info */}
+              <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                 <div className="font-mono font-medium text-white">{editingProduct.sku}</div>
                 <div className="text-sm text-slate-400">{editingProduct.name}</div>
-                {editingProduct.priceBrutto !== null && (
-                  <div className="text-sm text-emerald-400 mt-1">
-                    Cena: {Number(editingProduct.priceBrutto).toFixed(2)} zł
-                  </div>
-                )}
               </div>
 
+              {/* Quantity */}
               <div>
                 <div className="text-sm text-slate-400 mb-2">Ilość</div>
                 <div className="flex items-center gap-2">
@@ -1073,7 +1140,6 @@ export default function InventoryDetailPage() {
                     onChange={(e) => setEditQty(parseInt(e.target.value) || 0)}
                     className="flex-1 px-4 py-3 rounded-lg bg-white/10 border-2 border-primary-500/50 text-white text-center text-2xl font-bold focus:outline-none focus:border-primary-500"
                     min={0}
-                    autoFocus
                   />
                   <button
                     type="button"
@@ -1088,7 +1154,42 @@ export default function InventoryDetailPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              {/* Price fields - only for ADMIN */}
+              {isAdmin && (
+                <div className="border-t border-white/10 pt-4">
+                  <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Edycja cen (ADMIN)
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-blue-400 mb-1">Cena netto (zakup)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editPriceNetto}
+                        onChange={(e) => setEditPriceNetto(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 rounded-lg bg-white/10 border border-blue-500/30 text-white text-right focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-emerald-400 mb-1">Cena brutto (sprzedaż)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editPriceBrutto}
+                        onChange={(e) => setEditPriceBrutto(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 rounded-lg bg-white/10 border border-emerald-500/30 text-white text-right focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
                 <Button
                   variant="secondary"
                   onClick={() => setEditingProduct(null)}
@@ -1100,10 +1201,27 @@ export default function InventoryDetailPage() {
                   onClick={async () => {
                     if (!editingProduct.lineId) return;
                     try {
+                      // Update line quantity
                       await updateLineMutation.mutateAsync({
                         lineId: editingProduct.lineId,
                         countedQty: editQty,
                       });
+
+                      // Update product prices if ADMIN and productId exists
+                      if (isAdmin && editingProduct.productId) {
+                        const newPriceNetto = editPriceNetto ? parseFloat(editPriceNetto) : null;
+                        const newPriceBrutto = editPriceBrutto ? parseFloat(editPriceBrutto) : null;
+
+                        // Only update if prices changed
+                        if (newPriceNetto !== editingProduct.priceNetto || newPriceBrutto !== editingProduct.priceBrutto) {
+                          await updateProductPriceMutation.mutateAsync({
+                            productId: editingProduct.productId,
+                            priceNetto: newPriceNetto,
+                            priceBrutto: newPriceBrutto,
+                          });
+                        }
+                      }
+
                       // Update local scannedProducts state
                       setScannedProducts(prev => prev.map(p =>
                         p.lineId === editingProduct.lineId
@@ -1115,10 +1233,10 @@ export default function InventoryDetailPage() {
                       // Error handled in mutation
                     }
                   }}
-                  disabled={updateLineMutation.isPending}
+                  disabled={updateLineMutation.isPending || updateProductPriceMutation.isPending}
                   className="flex-1"
                 >
-                  {updateLineMutation.isPending ? 'Zapisywanie...' : 'Zapisz'}
+                  {(updateLineMutation.isPending || updateProductPriceMutation.isPending) ? 'Zapisywanie...' : 'Zapisz'}
                 </Button>
               </div>
             </div>

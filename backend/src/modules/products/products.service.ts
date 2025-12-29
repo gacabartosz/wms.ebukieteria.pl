@@ -198,6 +198,8 @@ export const updateProduct = async (
     unit?: string;
     zone?: string;
     owner?: string;
+    priceNetto?: number | null;
+    priceBrutto?: number | null;
   }
 ) => {
   const existing = await prisma.product.findUnique({
