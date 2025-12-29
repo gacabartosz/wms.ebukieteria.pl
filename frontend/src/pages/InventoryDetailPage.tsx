@@ -758,8 +758,14 @@ export default function InventoryDetailPage() {
               {scannedProducts.map((product, index) => (
                 <div
                   key={`${product.code}-${index}`}
-                  className="glass-card p-3 flex items-center gap-3 animate-fade-in"
+                  className="glass-card p-3 flex items-center gap-3 animate-fade-in cursor-pointer hover:bg-white/10 transition-colors"
                   style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => {
+                    if (product.lineId) {
+                      setEditingProduct(product);
+                      setEditQty(product.qty);
+                    }
+                  }}
                 >
                   <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
                     <span className="text-green-400 font-bold">{product.qty}</span>
@@ -780,7 +786,35 @@ export default function InventoryDetailPage() {
                       <span>{format(product.scannedAt, 'HH:mm', { locale: pl })}</span>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-500 font-mono">{product.code}</div>
+                  {/* Edit/Delete buttons - visible for all users */}
+                  {product.lineId && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingProduct(product);
+                          setEditQty(product.qty);
+                        }}
+                        className="p-2 rounded-lg text-slate-400 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Czy na pewno usunąć tę pozycję?')) {
+                            deleteLineMutation.mutate(product.lineId!);
+                            // Also remove from local state
+                            setScannedProducts(prev => prev.filter(p => p.lineId !== product.lineId));
+                          }
+                        }}
+                        disabled={deleteLineMutation.isPending}
+                        className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1028,6 +1062,12 @@ export default function InventoryDetailPage() {
                         lineId: editingProduct.lineId,
                         countedQty: editQty,
                       });
+                      // Update local scannedProducts state
+                      setScannedProducts(prev => prev.map(p =>
+                        p.lineId === editingProduct.lineId
+                          ? { ...p, qty: editQty }
+                          : p
+                      ));
                       setEditingProduct(null);
                     } catch {
                       // Error handled in mutation
