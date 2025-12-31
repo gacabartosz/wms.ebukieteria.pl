@@ -376,6 +376,54 @@ imageUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
 - Pełna lista produktów z cenami
 - Podpisy i pieczątki
 
+### Zasady dodawania produktów ze zdjęciami
+
+**Dodawanie nowego produktu:**
+1. **Zrób zdjęcie** (kamera lub wybierz z galerii) - WYMAGANE
+2. **Wybierz nazwę** z szybkich przycisków lub wpisz własną:
+   - Szybkie przyciski: `Doniczka`, `Ozdoba`, `Kwiat żywy`, `Inne`
+   - Auto-sugestie podczas wpisywania
+   - Nazwa definiuje automatycznie VAT (8% lub 23%)
+3. **Wpisz cenę brutto** (wymagane)
+4. **Ustaw ilość** (domyślnie 1) - przyciski +/-
+5. **EAN** (opcjonalnie) - można zeskanować
+6. Kliknij **ZAPISZ PRODUKT**
+7. Formularz resetuje się → fokus na pole ceny → gotowy do następnego
+
+**Szybkie przyciski kategorii:**
+| Przycisk | Pełna nazwa | VAT |
+|----------|-------------|-----|
+| Kw.cięty | Kwiat cięty | 8% |
+| Kw.donic. | Kwiat doniczkowy | 8% |
+| Ziemia | Ziemia | 8% |
+| Art.dek. | Artykuł dekoracyjny | 23% |
+| Szkło | Szkło | 23% |
+| Ceramika | Ceramika | 23% |
+| Kw.sztucz. | Kwiat sztuczny | 23% |
+| Znicz | Znicz | 23% |
+| Wkłady | Wkłady do zniczy | 23% |
+| Świece | Świece | 23% |
+| Nawozy | Nawozy | 23% |
+| Don.plast. | Doniczka plastikowa | 23% |
+| Wiklina | Wiklina | 23% |
+
+**Edycja dodanego produktu:**
+1. Kliknij na produkt na liście
+2. Zmień ilość / cenę / nazwę
+3. Kliknij **Zapisz**
+
+**Panel ADMIN (tylko dla administratorów):**
+- Edycja VAT per produkt (8% / 23%)
+- Edycja podzielnika per produkt (/1.5, /2, /2.5, /3)
+- Podgląd ceny netto zakupu
+- Eksport do Excel i PDF
+
+**Formuła ceny netto zakupu:**
+```
+Cena netto = Cena brutto / (1 + VAT%) / Podzielnik
+Przykład: 100 zł / 1.08 / 2 = 46.30 zł
+```
+
 ### Flow Inwentaryzacji "Nowe Produkty"
 
 ```
