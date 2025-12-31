@@ -48,6 +48,51 @@ interface PendingProduct {
   priceNetto: number | null;
 }
 
+// Session state interface for localStorage persistence
+interface InventorySessionState {
+  step: Step;
+  currentLocation: { id: string; barcode: string; zone?: string } | null;
+  currentContainer: { id: string; barcode: string; name?: string } | null;
+  completedLocations: string[];
+  timestamp: number;
+}
+
+// Helper functions for session persistence
+const getSessionKey = (inventoryId: string) => `inventory-session-${inventoryId}`;
+
+const saveSessionState = (inventoryId: string, state: InventorySessionState) => {
+  try {
+    localStorage.setItem(getSessionKey(inventoryId), JSON.stringify(state));
+  } catch (e) {
+    console.warn('Failed to save session state:', e);
+  }
+};
+
+const loadSessionState = (inventoryId: string): InventorySessionState | null => {
+  try {
+    const saved = localStorage.getItem(getSessionKey(inventoryId));
+    if (!saved) return null;
+    const state = JSON.parse(saved) as InventorySessionState;
+    // Session valid for 24 hours
+    if (Date.now() - state.timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(getSessionKey(inventoryId));
+      return null;
+    }
+    return state;
+  } catch (e) {
+    console.warn('Failed to load session state:', e);
+    return null;
+  }
+};
+
+const clearSessionState = (inventoryId: string) => {
+  try {
+    localStorage.removeItem(getSessionKey(inventoryId));
+  } catch (e) {
+    console.warn('Failed to clear session state:', e);
+  }
+};
+
 export default function InventoryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -101,6 +146,11 @@ export default function InventoryDetailPage() {
     inputLengthBeforeRef.current = 0;
     lastInputTimeRef.current = 0;
     setShowSearchDropdown(false);
+    // Always refocus input for continuous scanning
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 200);
   }, []);
 
 
@@ -165,6 +215,55 @@ export default function InventoryDetailPage() {
   // Check if inventory is in progress (editable)
   const isInProgress = inventory?.status === 'IN_PROGRESS';
 
+  // Load session state on mount (restore after screen off / page refresh)
+  useEffect(() => {
+    if (!id || !inventory) return;
+
+    const savedState = loadSessionState(id);
+    if (savedState && savedState.currentLocation) {
+      console.log('Restoring inventory session:', savedState);
+      setStep(savedState.step);
+      setCurrentLocation(savedState.currentLocation);
+      setCurrentContainer(savedState.currentContainer);
+      setCompletedLocations(savedState.completedLocations);
+      toast.success(`Przywrócono sesję: ${savedState.currentLocation.barcode}`);
+    }
+
+    // Initialize scannedProducts from inventory.lines for current location
+    if (inventory.lines && inventory.lines.length > 0 && savedState?.currentLocation) {
+      const productsFromServer = inventory.lines
+        .filter(line => line.location.barcode === savedState.currentLocation?.barcode)
+        .map(line => ({
+          code: line.product.ean || line.product.sku,
+          sku: line.product.sku,
+          name: line.product.name,
+          qty: line.countedQty,
+          priceBrutto: line.product.priceBrutto ? Number(line.product.priceBrutto) : null,
+          priceNetto: line.product.priceNetto ? Number(line.product.priceNetto) : null,
+          scannedBy: line.countedBy?.name || 'Nieznany',
+          scannedAt: line.countedAt ? new Date(line.countedAt) : new Date(),
+          lineId: line.id,
+          productId: line.product.id,
+        }));
+      if (productsFromServer.length > 0) {
+        setScannedProducts(productsFromServer);
+      }
+    }
+  }, [id, inventory?.id]); // Only run when inventory is loaded
+
+  // Save session state whenever important state changes
+  useEffect(() => {
+    if (!id || !inventory || inventory.status !== 'IN_PROGRESS') return;
+
+    saveSessionState(id, {
+      step,
+      currentLocation,
+      currentContainer,
+      completedLocations,
+      timestamp: Date.now(),
+    });
+  }, [id, inventory?.status, step, currentLocation, currentContainer, completedLocations]);
+
   // Focus input on mount and step change
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -226,6 +325,7 @@ export default function InventoryDetailPage() {
     mutationFn: () => inventoryService.completeInventoryCount(id!),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      if (id) clearSessionState(id);
       playBeep('success');
       toast.success(`Inwentaryzacja zakończona! Korekt: ${result.adjustmentsCount}`);
       navigate('/inventory');
@@ -240,6 +340,7 @@ export default function InventoryDetailPage() {
     mutationFn: () => inventoryService.cancelInventoryCount(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      if (id) clearSessionState(id);
       toast.success('Inwentaryzacja anulowana');
       navigate('/inventory');
     },
@@ -377,23 +478,33 @@ export default function InventoryDetailPage() {
       await savePendingProduct();
     }
 
-    // Get product info without saving (just validation)
+    // Save product directly with qty=1 (no pending, immediate save)
     try {
+      const result = await addLineMutation.mutateAsync({
+        locationBarcode: currentLocation.barcode,
+        productCode: code,
+        countedQty: 1,
+      });
+
+      // Get product info for display
       const productInfo = await productsService.getProductByCode(code);
 
-      // Set as new pending product with price
-      setPendingProduct({
-        code: code,
-        sku: productInfo.sku,
-        name: productInfo.name,
-        productId: productInfo.id,
-        priceBrutto: productInfo.priceBrutto ? Number(productInfo.priceBrutto) : null,
-        priceNetto: productInfo.priceNetto ? Number(productInfo.priceNetto) : null,
-      });
-      setPendingQty(1);
-
-      // Focus on quantity input
-      setTimeout(() => qtyInputRef.current?.focus(), 100);
+      // Add to scanned list
+      setScannedProducts(prev => [
+        ...prev,
+        {
+          code: code,
+          sku: productInfo.sku,
+          name: productInfo.name,
+          qty: 1,
+          priceBrutto: productInfo.priceBrutto ? Number(productInfo.priceBrutto) : null,
+          priceNetto: productInfo.priceNetto ? Number(productInfo.priceNetto) : null,
+          scannedBy: user?.name || 'Nieznany',
+          scannedAt: new Date(),
+          lineId: result?.id,
+          productId: productInfo.id,
+        },
+      ]);
 
       playBeep('success');
       clearInput();
@@ -1106,7 +1217,13 @@ export default function InventoryDetailPage() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-white">Edycja pozycji</h3>
               <button
-                onClick={() => setEditingProduct(null)}
+                onClick={() => {
+                  setEditingProduct(null);
+                  setTimeout(() => {
+                    inputRef.current?.focus();
+                    inputRef.current?.select();
+                  }, 300);
+                }}
                 className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -1192,7 +1309,13 @@ export default function InventoryDetailPage() {
               <div className="flex gap-3 pt-2">
                 <Button
                   variant="secondary"
-                  onClick={() => setEditingProduct(null)}
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setTimeout(() => {
+                      inputRef.current?.focus();
+                      inputRef.current?.select();
+                    }, 300);
+                  }}
                   className="flex-1"
                 >
                   Anuluj
@@ -1229,6 +1352,11 @@ export default function InventoryDetailPage() {
                           : p
                       ));
                       setEditingProduct(null);
+                      // Focus back to scanner input
+                      setTimeout(() => {
+                        inputRef.current?.focus();
+                        inputRef.current?.select();
+                      }, 300);
                     } catch {
                       // Error handled in mutation
                     }

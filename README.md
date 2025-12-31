@@ -138,6 +138,34 @@ PRODUKT (EAN) → KUWETA (K000001) → PÓŁKA (PL1-01-01-01)
      Korekty stanów
 ```
 
+### Zasady skanowania produktów
+
+**Skanowanie EAN (skaner Zebra TC21):**
+1. Skanuj EAN → produkt **od razu zapisuje się z ilością 1**
+2. Fokus **automatycznie wraca** do pola skanera
+3. Można od razu skanować następny produkt
+4. Brak pytania o ilość - szybkie, ciągłe skanowanie
+
+**Ręczny wybór produktu (długopis/autocomplete):**
+1. Wpisz nazwę/SKU → wybierz z listy
+2. Pojawia się pole **edycji ilości** (domyślnie 1)
+3. Zmień ilość → kliknij **Zapisz** lub **Enter**
+4. Fokus wraca do skanera
+
+**Edycja ilości już zeskanowanego produktu:**
+1. Kliknij na produkt na liście
+2. Zmień ilość w modalu
+3. Kliknij **Zapisz**
+4. Fokus automatycznie wraca do skanera
+
+**Przywracanie sesji po wygaśnięciu ekranu:**
+- Sesja inwentaryzacji zapisuje się w localStorage
+- Po wygaszeniu ekranu / odświeżeniu strony:
+  - Komunikat "Przywrócono sesję: [lokalizacja]"
+  - Produkty z tej lokalizacji ładowane z serwera
+  - Można kontynuować skanowanie
+- Sesja ważna **24 godziny**
+
 ### Dźwięki
 
 | Akcja | Dźwięk |
@@ -542,6 +570,6 @@ Serwer produkcyjny:
 
 ---
 
-**Wersja:** 2.0.0
-**Ostatnia aktualizacja:** 2025-12-28
+**Wersja:** 2.1.0
+**Ostatnia aktualizacja:** 2025-12-31
 **Autor:** eBukieteria.pl Team

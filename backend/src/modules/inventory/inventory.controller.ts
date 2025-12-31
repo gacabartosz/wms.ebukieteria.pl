@@ -109,6 +109,15 @@ export const cancelInventoryCount = async (req: Request, res: Response, next: Ne
   }
 };
 
+export const reopenInventoryCount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await inventoryService.reopenInventoryCount(req.user!.id, req.params.id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateInventoryCount = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = updateInventorySchema.parse(req.body);
@@ -165,6 +174,26 @@ export const exportInventory = async (req: Request, res: Response, next: NextFun
 
     const filename = `inwentaryzacja-${inventory.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
     await exportInventoryToExcel(res, filename, inventoryData);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const exportPdfSchema = z.object({
+  vatRate: z.number().int().min(0).max(100).optional().default(23),
+  divider: z.number().min(1).max(10).optional().default(2),
+});
+
+export const exportInventoryPDF = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { vatRate, divider } = exportPdfSchema.parse(req.body);
+    const doc = await inventoryService.exportToPDF(req.params.id, vatRate, divider);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="inwentaryzacja_${req.params.id}.pdf"`);
+
+    doc.pipe(res);
+    doc.end();
   } catch (error) {
     next(error);
   }

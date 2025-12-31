@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const createUserSchema = z.object({
-  phone: z.string().min(3).max(50),  // Login - can be phone or any username
-  password: z.string().min(6),
+  phone: z.string().min(1).max(50),  // Login/username (named 'phone' for frontend compatibility)
+  password: z.string().min(4),
   name: z.string().min(1),
   role: z.enum(['ADMIN', 'MANAGER', 'WAREHOUSE']).optional(),
   permissions: z.array(z.string()).optional(),

@@ -68,40 +68,40 @@ export default function LoginPage() {
       <div className="noise-overlay z-[2]" />
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="inline-block mb-6 animate-float">
+        {/* Logo - compact for mobile */}
+        <div className="text-center mb-6">
+          <div className="inline-block mb-4 animate-float">
             <div className="relative">
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-pink-500/30 to-purple-500/30 blur-xl" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-pink-500/30 to-purple-500/30 blur-xl" />
               <img
                 src="/logo.png"
                 alt="eBukieteria"
-                className="relative w-24 h-24 object-contain rounded-3xl"
+                className="relative w-16 h-16 object-contain rounded-2xl"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   e.currentTarget.nextElementSibling?.classList.remove('hidden');
                 }}
               />
-              <div className="hidden w-24 h-24 rounded-3xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 backdrop-blur-xl border border-white/20 flex items-center justify-center">
-                <Package className="w-12 h-12 text-pink-400" />
+              <div className="hidden w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 backdrop-blur-xl border border-white/20 flex items-center justify-center">
+                <Package className="w-8 h-8 text-pink-400" />
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-bold mb-2">
+          <h1 className="text-2xl font-bold mb-1">
             <span className="text-gradient">WMS</span>
           </h1>
-          <p className="text-white/60 text-lg">eBukieteria.pl</p>
+          <p className="text-white/60 text-sm">eBukieteria.pl</p>
         </div>
 
-        {/* Login form */}
-        <div className="glass-card-ios p-8 animate-scale-in">
-          <h2 className="text-xl font-semibold text-white/90 mb-8 text-center">
-            Zaloguj sie
+        {/* Login form - compact */}
+        <div className="glass-card-ios p-5 animate-scale-in">
+          <h2 className="text-lg font-semibold text-white/90 mb-5 text-center">
+            Zaloguj się
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-white/70 mb-2 ml-1">
+              <label htmlFor="username" className="block text-xs font-medium text-white/70 mb-1.5 ml-1">
                 Login
               </label>
               <input
@@ -109,15 +109,15 @@ export default function LoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-5 py-4 rounded-2xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-lg"
+                className="w-full px-4 py-3 rounded-xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-base"
                 autoComplete="username"
                 disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white/70 mb-2 ml-1">
-                Haslo
+              <label htmlFor="password" className="block text-xs font-medium text-white/70 mb-1.5 ml-1">
+                Hasło
               </label>
               <div className="relative">
                 <input
@@ -125,20 +125,20 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-5 py-4 pr-14 rounded-2xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-lg"
+                  className="w-full px-4 py-3 pr-12 rounded-xl glass-input text-white placeholder-white/30 focus:outline-none transition-all text-base"
                   autoComplete="current-password"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors p-1"
                   tabIndex={-1}
                 >
                   {showPassword ? (
-                    <EyeOff className="w-6 h-6" />
+                    <EyeOff className="w-5 h-5" />
                   ) : (
-                    <Eye className="w-6 h-6" />
+                    <Eye className="w-5 h-5" />
                   )}
                 </button>
               </div>
@@ -147,15 +147,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 px-6 rounded-2xl glass-button text-white font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-8"
+              className="w-full py-3 px-5 rounded-xl glass-button text-white font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-5"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                   Logowanie...
                 </>
               ) : (
-                'Zaloguj sie'
+                'Zaloguj się'
               )}
             </button>
           </form>

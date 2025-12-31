@@ -499,16 +499,15 @@ export default function InventoryIntroDetailPage() {
         </div>
       }
     >
-      {/* Header info */}
-      <div className="glass-card p-3 mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="w-4 h-4 text-primary-400" />
-          <span className="text-slate-300">{inventory.defaultLocationBarcode}</span>
+      {/* Header info - compact */}
+      <div className="glass-card p-2 mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs">
+          <MapPin className="w-3.5 h-3.5 text-primary-400" />
+          <span className="text-slate-300 font-mono">{inventory.defaultLocationBarcode}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Package className="w-4 h-4 text-green-400" />
+        <div className="flex items-center gap-1.5 text-xs">
+          <Package className="w-3.5 h-3.5 text-green-400" />
           <span className="text-white font-medium">{inventory.lines.length}</span>
-          <span className="text-slate-400">produktow</span>
         </div>
       </div>
 
@@ -724,13 +723,13 @@ export default function InventoryIntroDetailPage() {
       )}
 
       {isInProgress && (
-        <form onSubmit={handleSubmit} className="pb-28 sm:pb-4">
-          {/* All fields in one glass-card */}
-          <div className="glass-card p-4 space-y-4">
-          {/* Image capture - always camera */}
+        <form onSubmit={handleSubmit} className="pb-24 sm:pb-4">
+          {/* All fields in one glass-card - compact */}
+          <div className="glass-card p-3 space-y-3">
+          {/* Image capture - compact */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Zdjecie <span className="text-red-400">*</span>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Zdjęcie <span className="text-red-400">*</span>
             </label>
             <input
               type="file"
@@ -745,7 +744,7 @@ export default function InventoryIntroDetailPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={isCompressing}
               className={clsx(
-                'w-full h-32 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all',
+                'w-full h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all',
                 imagePreview
                   ? 'border-green-500/50 bg-green-500/5'
                   : 'border-white/20 bg-white/5 hover:border-primary-500/50 hover:bg-primary-500/5',
@@ -754,8 +753,8 @@ export default function InventoryIntroDetailPage() {
             >
               {isCompressing ? (
                 <>
-                  <div className="w-8 h-8 border-3 border-primary-500/30 border-t-primary-500 rounded-full animate-spin mb-1" />
-                  <span className="text-slate-400 text-xs">Kompresowanie...</span>
+                  <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin mb-1" />
+                  <span className="text-slate-400 text-[10px]">Kompresowanie...</span>
                 </>
               ) : imagePreview ? (
                 <img
@@ -765,8 +764,8 @@ export default function InventoryIntroDetailPage() {
                 />
               ) : (
                 <>
-                  <Camera className="w-8 h-8 text-slate-400 mb-1" />
-                  <span className="text-slate-400 text-xs">Zrob zdjecie</span>
+                  <Camera className="w-6 h-6 text-slate-400 mb-1" />
+                  <span className="text-slate-400 text-[10px]">Zrób zdjęcie</span>
                 </>
               )}
             </button>
@@ -777,17 +776,17 @@ export default function InventoryIntroDetailPage() {
                   setImagePreview('');
                   setImageUrl('');
                 }}
-                className="mt-2 text-sm text-red-400 hover:text-red-300"
+                className="mt-1 text-xs text-red-400 hover:text-red-300"
               >
-                Usun zdjecie
+                Usuń
               </button>
             )}
           </div>
 
-          {/* Price */}
+          {/* Price - compact */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Cena brutto (zl) <span className="text-red-400">*</span>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Cena brutto <span className="text-red-400">*</span>
             </label>
             <input
               ref={priceInputRef}
@@ -796,46 +795,46 @@ export default function InventoryIntroDetailPage() {
               value={priceBrutto}
               onChange={(e) => setPriceBrutto(e.target.value)}
               placeholder="0.00"
-              className="w-full px-4 py-4 text-2xl font-bold rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-transparent"
+              className="w-full px-3 py-2.5 text-xl font-bold rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-transparent"
             />
           </div>
 
-          {/* Quantity */}
+          {/* Quantity - compact */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Ilosc</label>
-            <div className="flex items-center gap-3">
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Ilość</label>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleQuantityChange(-1)}
                 disabled={quantity <= 1}
-                className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors"
+                className="w-11 h-11 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors"
               >
-                <Minus className="w-6 h-6" />
+                <Minus className="w-5 h-5" />
               </button>
-              <div className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                <span className="text-2xl font-bold text-white">{quantity}</span>
+              <div className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-center">
+                <span className="text-xl font-bold text-white">{quantity}</span>
               </div>
               <button
                 type="button"
                 onClick={() => handleQuantityChange(1)}
-                className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                className="w-11 h-11 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
               >
-                <Plus className="w-6 h-6" />
+                <Plus className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Unit */}
+          {/* Unit - compact */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Jednostka</label>
-            <div className="flex gap-2">
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Jednostka</label>
+            <div className="flex gap-1.5">
               {['szt', 'kg', 'opak'].map((u) => (
                 <button
                   key={u}
                   type="button"
                   onClick={() => setUnit(u)}
                   className={clsx(
-                    'flex-1 py-3 rounded-xl font-medium transition-all',
+                    'flex-1 py-2 rounded-xl text-sm font-medium transition-all',
                     unit === u
                       ? 'bg-primary-500 text-white'
                       : 'bg-white/5 text-slate-300 hover:bg-white/10'

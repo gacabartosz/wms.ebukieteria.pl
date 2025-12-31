@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../../config/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
-import { sanitizePhone, paginationHelper, formatPagination } from '../../utils/helpers.js';
+import { paginationHelper, formatPagination } from '../../utils/helpers.js';
 import type { CreateUserInput, UpdateUserInput } from './users.validation.js';
 
 export const getUsers = async (params: {
@@ -28,7 +28,7 @@ export const getUsers = async (params: {
   if (params.search) {
     where.OR = [
       { name: { contains: params.search, mode: 'insensitive' } },
-      { phone: { contains: params.search } },
+      { username: { contains: params.search, mode: 'insensitive' } },
     ];
   }
 
@@ -117,21 +117,22 @@ export const getUserById = async (id: string) => {
 };
 
 export const createUser = async (data: CreateUserInput) => {
-  const phone = sanitizePhone(data.phone);
+  // phone w validation to tak naprawdę login/username
+  const username = data.phone.trim();
 
   const existing = await prisma.user.findUnique({
-    where: { phone },
+    where: { username },
   });
 
   if (existing) {
-    throw new AppError('Użytkownik z tym numerem telefonu już istnieje', 400);
+    throw new AppError('Użytkownik z tym loginem już istnieje', 400);
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
 
   const user = await prisma.user.create({
     data: {
-      phone,
+      username,
       password: hashedPassword,
       name: data.name,
       role: data.role || 'WAREHOUSE',
@@ -139,7 +140,7 @@ export const createUser = async (data: CreateUserInput) => {
     },
     select: {
       id: true,
-      phone: true,
+      username: true,
       name: true,
       role: true,
     },

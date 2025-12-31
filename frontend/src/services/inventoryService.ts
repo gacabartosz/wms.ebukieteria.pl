@@ -82,6 +82,11 @@ export const inventoryService = {
     await api.post(`/inventory/${id}/cancel`);
   },
 
+  reopenInventoryCount: async (id: string): Promise<{ id: string; status: string }> => {
+    const response = await api.post(`/inventory/${id}/reopen`);
+    return response.data;
+  },
+
   updateInventoryCount: async (id: string, data: { name: string }): Promise<InventoryCount> => {
     const response = await api.put(`/inventory/${id}`, data);
     return response.data;
@@ -94,6 +99,21 @@ export const inventoryService = {
   exportToExcel: async (id: string, name: string): Promise<void> => {
     const filename = `inwentaryzacja-${name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
     await downloadFile(`/inventory/${id}/export`, filename);
+  },
+
+  exportToPDF: async (id: string, vatRate: number = 23, divider: number = 2): Promise<void> => {
+    const response = await api.post(`/inventory/${id}/export/pdf`, { vatRate, divider }, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `inwentaryzacja_${id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 
   updateLine: async (

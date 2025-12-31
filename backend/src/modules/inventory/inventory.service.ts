@@ -1,6 +1,7 @@
 import prisma from '../../config/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { paginationHelper, formatPagination } from '../../utils/helpers.js';
+import PDFDocument from 'pdfkit';
 
 export const getInventoryCounts = async (params: {
   page?: number;
@@ -434,6 +435,61 @@ export const cancelInventoryCount = async (userId: string, inventoryId: string) 
   return { id: inventoryId, status: 'CANCELLED' };
 };
 
+// Reopen (restore) inventory count - ADMIN only
+// Can restore CANCELLED or COMPLETED inventories back to IN_PROGRESS
+export const reopenInventoryCount = async (userId: string, inventoryId: string) => {
+  const inventoryCount = await prisma.inventoryCount.findUnique({
+    where: { id: inventoryId },
+    include: {
+      lines: true,
+    },
+  });
+
+  if (!inventoryCount) {
+    throw new AppError('Inwentaryzacja nie istnieje', 404);
+  }
+
+  if (inventoryCount.status === 'IN_PROGRESS') {
+    throw new AppError('Inwentaryzacja jest już w trakcie', 400);
+  }
+
+  // Get unique location IDs from lines
+  const locationIds = [...new Set(inventoryCount.lines.map((l) => l.locationId))];
+
+  await prisma.$transaction(async (tx) => {
+    // Block locations for counting again
+    if (locationIds.length > 0) {
+      await tx.location.updateMany({
+        where: { id: { in: locationIds } },
+        data: { status: 'COUNTING' },
+      });
+    }
+
+    // Update status back to IN_PROGRESS
+    await tx.inventoryCount.update({
+      where: { id: inventoryId },
+      data: {
+        status: 'IN_PROGRESS',
+        completedAt: null,
+      },
+    });
+
+    // Audit log
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: 'INV_REOPEN',
+        metadata: {
+          inventoryId,
+          previousStatus: inventoryCount.status,
+        },
+      },
+    });
+  });
+
+  return { id: inventoryId, status: 'IN_PROGRESS' };
+};
+
 export const getLocationForCounting = async (inventoryId: string, barcode: string) => {
   const inventoryCount = await prisma.inventoryCount.findUnique({
     where: { id: inventoryId },
@@ -675,4 +731,151 @@ export const deleteInventoryLine = async (
       },
     },
   });
+};
+
+// Export inventory to PDF
+export const exportToPDF = async (
+  inventoryId: string,
+  vatRate: number = 23,
+  divider: number = 2
+): Promise<typeof PDFDocument.prototype> => {
+  const inventory = await prisma.inventoryCount.findUnique({
+    where: { id: inventoryId },
+    include: {
+      warehouse: { select: { code: true, name: true } },
+      createdBy: { select: { name: true } },
+      lines: {
+        include: {
+          location: { select: { barcode: true, zone: true } },
+          product: {
+            select: {
+              sku: true,
+              name: true,
+              ean: true,
+              priceBrutto: true,
+              priceNetto: true,
+              imageUrl: true,
+            }
+          },
+          countedBy: { select: { name: true } },
+        },
+        orderBy: [{ location: { barcode: 'asc' } }, { product: { sku: 'asc' } }],
+      },
+    },
+  });
+
+  if (!inventory) {
+    throw new AppError('Inwentaryzacja nie istnieje', 404);
+  }
+
+  // Create PDF document
+  const doc = new PDFDocument({
+    size: 'A4',
+    margin: 40,
+    bufferPages: true,
+  });
+
+  // Header
+  doc.fontSize(18).font('Helvetica-Bold').text('INWENTARYZACJA', { align: 'center' });
+  doc.moveDown(0.3);
+  doc.fontSize(14).font('Helvetica').text(inventory.name, { align: 'center' });
+  doc.moveDown(0.3);
+  doc.fontSize(9).text(
+    `Magazyn: ${inventory.warehouse?.name || '-'} | Status: ${inventory.status} | Data: ${new Date().toLocaleDateString('pl-PL')}`,
+    { align: 'center' }
+  );
+  doc.moveDown(0.5);
+
+  // Config info
+  doc.fontSize(8).fillColor('#666666').text(
+    `Eksport: VAT ${vatRate}% | Podzielnik ${divider} | Utworzył: ${inventory.createdBy?.name || '-'}`,
+    { align: 'center' }
+  );
+  doc.fillColor('#000000');
+  doc.moveDown(1);
+
+  let totalNetto = 0;
+  let totalBrutto = 0;
+  let totalQty = 0;
+  let lp = 1;
+
+  // Group lines by location
+  const linesByLocation = new Map<string, typeof inventory.lines>();
+  for (const line of inventory.lines) {
+    const locBarcode = line.location?.barcode || 'BRAK';
+    if (!linesByLocation.has(locBarcode)) {
+      linesByLocation.set(locBarcode, []);
+    }
+    linesByLocation.get(locBarcode)!.push(line);
+  }
+
+  for (const [locationBarcode, lines] of linesByLocation) {
+    // Location header
+    if (doc.y > 720) doc.addPage();
+
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#2563eb').text(`📍 ${locationBarcode}`, { underline: true });
+    doc.fillColor('#000000');
+    doc.moveDown(0.3);
+
+    for (const line of lines) {
+      if (doc.y > 750) doc.addPage();
+
+      const priceBrutto = line.product?.priceBrutto ? Number(line.product.priceBrutto) : 0;
+      const priceNetto = priceBrutto / (1 + vatRate / 100) / divider;
+      const lineValueBrutto = priceBrutto * line.countedQty;
+      const lineValueNetto = priceNetto * line.countedQty;
+
+      totalBrutto += lineValueBrutto;
+      totalNetto += lineValueNetto;
+      totalQty += line.countedQty;
+
+      const startY = doc.y;
+
+      // Product info
+      doc.fontSize(10).font('Helvetica-Bold').text(`${lp}. ${line.product?.name || 'Nieznany'}`, 50, startY);
+      doc.fontSize(8).font('Helvetica');
+      doc.text(`SKU: ${line.product?.sku || '-'} | EAN: ${line.product?.ean || '-'}`, 50, startY + 14);
+      doc.text(`Ilość: ${line.countedQty} szt | System: ${line.systemQty} szt | Różnica: ${line.countedQty - line.systemQty}`, 50, startY + 26);
+
+      // Prices on the right
+      doc.text(`Brutto: ${priceBrutto.toFixed(2)} zł`, 380, startY + 14, { width: 100, align: 'right' });
+      doc.text(`Netto zakupu: ${priceNetto.toFixed(2)} zł`, 380, startY + 26, { width: 100, align: 'right' });
+      doc.text(`Wartość: ${lineValueBrutto.toFixed(2)} zł`, 380, startY + 38, { width: 100, align: 'right' });
+
+      // Counted by
+      if (line.countedBy) {
+        doc.fontSize(7).fillColor('#888888').text(`Liczył: ${line.countedBy.name}`, 50, startY + 40);
+        doc.fillColor('#000000');
+      }
+
+      doc.y = startY + 55;
+      lp++;
+    }
+
+    doc.moveDown(0.5);
+  }
+
+  // Summary
+  doc.moveDown(1);
+  if (doc.y > 700) doc.addPage();
+
+  doc.fontSize(12).font('Helvetica-Bold').text('PODSUMOWANIE', { underline: true });
+  doc.moveDown(0.5);
+
+  doc.fontSize(10).font('Helvetica');
+  doc.text(`Liczba pozycji: ${inventory.lines.length}`);
+  doc.text(`Suma ilości: ${totalQty} szt`);
+  doc.moveDown(0.3);
+  doc.fontSize(11).font('Helvetica-Bold');
+  doc.text(`Wartość brutto: ${totalBrutto.toFixed(2)} zł`);
+  doc.fillColor('#16a34a').text(`Wartość netto zakupu: ${totalNetto.toFixed(2)} zł`);
+  doc.fillColor('#000000');
+
+  doc.moveDown(1);
+  doc.fontSize(8).fillColor('#888888').text(
+    `Wygenerowano: ${new Date().toLocaleString('pl-PL')} | Formuła netto: brutto / ${(1 + vatRate/100).toFixed(2)} / ${divider}`,
+    { align: 'center' }
+  );
+
+  return doc;
 };

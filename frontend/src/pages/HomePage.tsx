@@ -175,118 +175,117 @@ export default function HomePage() {
       {/* Noise overlay */}
       <div className="noise-overlay" />
 
-      {/* Header */}
-      <header className="glass-dark sticky top-0 z-50 px-4 py-3 border-b border-white/5">
+      {/* Header - compact */}
+      <header className="glass-dark sticky top-0 z-50 px-2 py-2 border-b border-white/5">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-pink-500/30 to-purple-500/30 blur-md" />
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 blur-md" />
               <img
                 src="/logo.png"
                 alt="eBukieteria"
-                className="relative w-10 h-10 object-contain rounded-xl"
+                className="relative w-8 h-8 object-contain rounded-lg"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   e.currentTarget.nextElementSibling?.classList.remove('hidden');
                 }}
               />
-              <div className="hidden w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center">
-                <Package className="w-5 h-5 text-pink-400" />
+              <div className="hidden w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center">
+                <Package className="w-4 h-4 text-pink-400" />
               </div>
             </div>
             <div>
-              <h1 className="font-bold text-gradient">WMS eBukieteria</h1>
-              <p className="text-xs text-white/50">{user?.name}</p>
+              <h1 className="font-bold text-gradient text-sm">WMS eBukieteria</h1>
+              <p className="text-[10px] text-white/50">{user?.name}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigate('/settings')}
-              className="p-2.5 rounded-xl glass hover:bg-white/10 text-white/60 hover:text-white transition-all"
+              className="p-2 rounded-lg glass hover:bg-white/10 text-white/60 hover:text-white transition-all"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={handleLogout}
-              className="p-2.5 rounded-xl glass hover:bg-red-500/20 text-white/60 hover:text-red-400 transition-all"
+              className="p-2 rounded-lg glass hover:bg-red-500/20 text-white/60 hover:text-red-400 transition-all"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="p-4 max-w-4xl mx-auto relative z-10">
-        {/* Welcome message */}
-        <div className="mb-8 animate-fade-in">
-          <h2 className="text-3xl font-bold text-white mb-2">
+      {/* Main content - compact padding */}
+      <main className="p-2 max-w-4xl mx-auto relative z-10">
+        {/* Welcome message - compact */}
+        <div className="mb-4 animate-fade-in">
+          <h2 className="text-xl font-bold text-white mb-1">
             Witaj, <span className="text-gradient-pink">{user?.name?.split(' ')[0]}</span>!
           </h2>
-          <p className="text-white/50">Co chcesz dzis zrobic?</p>
+          <p className="text-white/50 text-xs">Co chcesz dziś zrobić?</p>
         </div>
 
-        {/* Main operations */}
-        <section className="mb-10">
-          <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4 ml-1">
+        {/* Main operations - compact */}
+        <section className="mb-6">
+          <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-2 ml-1">
             Operacje
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {filteredOperations.map((op, index) => (
               <button
                 key={op.id}
                 onClick={() => navigate(op.path)}
                 className={clsx(
-                  'glass-card-ios p-5 text-left hover:scale-[1.03] active:scale-[0.97] transition-all duration-300',
+                  'glass-card-ios p-3 text-left hover:scale-[1.03] active:scale-[0.97] transition-all duration-300',
                   'animate-slide-up group'
                 )}
                 style={{ animationDelay: `${index * 80}ms` }}
               >
                 <div
                   className={clsx(
-                    'w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center mb-4',
+                    'w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-2',
                     'shadow-lg group-hover:shadow-xl transition-shadow',
                     op.color
                   )}
                   style={{ boxShadow: `0 8px 24px ${op.color.includes('green') ? 'rgba(16, 185, 129, 0.3)' : op.color.includes('red') ? 'rgba(239, 68, 68, 0.3)' : op.color.includes('blue') ? 'rgba(59, 130, 246, 0.3)' : op.color.includes('purple') ? 'rgba(139, 92, 246, 0.3)' : op.color.includes('cyan') ? 'rgba(6, 182, 212, 0.3)' : 'rgba(245, 158, 11, 0.3)'}` }}
                 >
-                  <op.icon className="w-7 h-7 text-white" />
+                  <op.icon className="w-5 h-5 text-white" />
                 </div>
-                <h4 className="font-semibold text-white mb-1 text-lg">{op.title}</h4>
-                <p className="text-sm text-white/40 line-clamp-2">{op.description}</p>
+                <h4 className="font-semibold text-white mb-0.5 text-sm">{op.title}</h4>
+                <p className="text-[10px] text-white/40 line-clamp-1">{op.description}</p>
               </button>
             ))}
           </div>
         </section>
 
-        {/* Admin operations */}
+        {/* Admin operations - compact */}
         {filteredAdminOperations.length > 0 && (
-          <section className="mb-8">
-            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4 ml-1">
+          <section className="mb-4">
+            <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-2 ml-1">
               Administracja
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
               {filteredAdminOperations.map((op, index) => (
                 <button
                   key={op.id}
                   onClick={() => navigate(op.path)}
                   className={clsx(
-                    'glass-card p-4 text-left hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-3',
+                    'glass-card p-2 text-left hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-2',
                     'animate-slide-up group'
                   )}
                   style={{ animationDelay: `${(filteredOperations.length + index) * 60}ms` }}
                 >
                   <div className={clsx(
-                    'w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0',
+                    'w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0',
                     'group-hover:scale-110 transition-transform',
                     op.color
                   )}>
-                    <op.icon className="w-5 h-5 text-white" />
+                    <op.icon className="w-4 h-4 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-medium text-white text-sm truncate">{op.title}</h4>
-                    <p className="text-xs text-white/40 truncate">{op.description}</p>
+                    <h4 className="font-medium text-white text-xs truncate">{op.title}</h4>
                   </div>
                 </button>
               ))}
@@ -295,7 +294,7 @@ export default function HomePage() {
         )}
 
         {/* Footer */}
-        <footer className="text-center py-6 text-white/20 text-xs">
+        <footer className="text-center py-3 text-white/20 text-[10px]">
           WMS eBukieteria v1.0.0
         </footer>
       </main>
