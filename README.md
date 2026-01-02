@@ -2,6 +2,13 @@
 
 System zarządzania magazynem dla eBukieteria.pl z obsługą dokumentów, inwentaryzacji i kuwet.
 
+**Produkcja:** https://wms.ebukieteria.pl
+**Wersja:** 1.2
+**Data aktualizacji:** 2026-01-02
+**Twórca:** Bartosz Gaca - https://bartoszgaca.pl
+
+---
+
 ## Uruchomienie produkcyjne
 
 Aplikacja jest wdrożona na: **https://wms.ebukieteria.pl**
